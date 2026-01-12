@@ -1,11 +1,84 @@
 import { useState, useRef, useEffect } from 'react'
-import { Search, Calendar } from 'lucide-react'
+import { Search } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+
+interface SourceMetadata {
+  title?: string;
+  url?: string;
+  [key: string]: unknown;
+}
+
+interface SourceDoc {
+  id: number;
+  content: string;
+  metadata: SourceMetadata;
+}
+
+interface SearchHit {
+  id?: string;
+  content: string;
+  metadata: SourceMetadata;
+  date?: string;
+  score?: number;
+}
+
+interface Message {
+  role: 'user' | 'ai';
+  content: string;
+  sources?: SourceDoc[];
+}
+
+const isSourceDocArray = (value: unknown): value is SourceDoc[] => {
+  if (!Array.isArray(value)) return false
+  return value.every((item) => {
+    if (typeof item !== 'object' || item === null) return false
+    const obj = item as Record<string, unknown>
+    return typeof obj.id === 'number' && typeof obj.content === 'string' && typeof obj.metadata === 'object' && obj.metadata !== null
+  })
+}
+
+const SourcePreview = ({ source }: { source: SourceDoc }) => {
+  const [showFull, setShowFull] = useState(false)
+  const timerRef = useRef<number | null>(null)
+
+  const handleMouseEnter = () => {
+    timerRef.current = setTimeout(() => {
+      setShowFull(true)
+    }, 1000)
+  }
+
+  const handleMouseLeave = () => {
+    if (timerRef.current !== null) clearTimeout(timerRef.current)
+    setShowFull(false)
+  }
+
+  return (
+    <div 
+      className="relative group border rounded bg-gray-50 p-1 mb-1"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div className="text-xs text-gray-500 font-mono flex items-center gap-2">
+         <span className="bg-blue-100 text-blue-800 px-1 rounded">Doc {source.id}</span>
+         <span className="text-gray-400 truncate max-w-[150px]">{source.metadata.title ?? ''}</span>
+      </div>
+      <div className="text-sm text-gray-700 mt-1 cursor-help transition-all">
+        {showFull ? (
+           <div className="p-2 bg-white border rounded shadow-sm animate-in fade-in zoom-in-95 duration-200">
+             {source.content}
+           </div>
+        ) : (
+           <span>{source.content.slice(0, 10)}...</span>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function App() {
   const [query, setQuery] = useState('')
-  const [messages, setMessages] = useState<{role: 'user'|'ai', content: string}[]>([])
-  const [sources, setSources] = useState<any[]>([])
+  const [messages, setMessages] = useState<Message[]>([])
+  const [sources, setSources] = useState<SearchHit[]>([])
   const [loading, setLoading] = useState(false)
   const [streaming, setStreaming] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
@@ -21,7 +94,7 @@ function App() {
     const currentQuery = query
     setQuery('') // Clear input
     
-    // 1. Search (Fetch sources)
+    // 1. Search (Fetch sources) - Keeping existing logic for right sidebar
     try {
       const res = await fetch('http://localhost:8000/api/search', {
         method: 'POST',
@@ -44,17 +117,56 @@ function App() {
       const reader = chatRes.body?.getReader()
       const decoder = new TextDecoder()
       
+      let buffer = ''
+      let sourcesParsed = false
+
       if (reader) {
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
-          const chunk = decoder.decode(value)
-          setMessages(prev => {
-            const newMsgs = [...prev]
-            const last = newMsgs[newMsgs.length - 1]
-            newMsgs[newMsgs.length - 1] = {...last, content: last.content + chunk}
-            return newMsgs
-          })
+          
+          const chunk = decoder.decode(value, {stream: true})
+          buffer += chunk
+          
+          if (!sourcesParsed) {
+             // Check if we have the sources prefix
+             if (buffer.startsWith('__SOURCES__:')) {
+                const newlineIdx = buffer.indexOf('\n')
+                if (newlineIdx !== -1) {
+                   const jsonStr = buffer.slice('__SOURCES__:'.length, newlineIdx)
+                   try {
+                      const parsed = JSON.parse(jsonStr) as unknown
+                      const extractedSources: SourceDoc[] = isSourceDocArray(parsed) ? parsed : []
+                      setMessages(prev => {
+                        const newMsgs = [...prev]
+                        const last = newMsgs[newMsgs.length - 1]
+                        newMsgs[newMsgs.length - 1] = {...last, sources: extractedSources}
+                        return newMsgs
+                      })
+                   } catch (e) {
+                      console.error("Failed to parse sources", e)
+                   }
+                   buffer = buffer.slice(newlineIdx + 1)
+                   sourcesParsed = true
+                }
+             } else {
+                // If buffer gets long enough and doesn't start with prefix, assume no sources
+                if (buffer.length > 20) {
+                   sourcesParsed = true
+                }
+             }
+          }
+          
+          if (sourcesParsed && buffer.length > 0) {
+            const textToAppend = buffer
+            buffer = ''
+            setMessages(prev => {
+              const newMsgs = [...prev]
+              const last = newMsgs[newMsgs.length - 1]
+              newMsgs[newMsgs.length - 1] = {...last, content: last.content + textToAppend}
+              return newMsgs
+            })
+          }
         }
       }
     } catch (e) {
@@ -95,8 +207,21 @@ function App() {
                   </div>
                 )}
                 {messages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                     <div className={`max-w-[85%] rounded-lg p-3 prose prose-sm ${msg.role === 'user' ? 'bg-blue-600 text-white prose-invert' : 'bg-gray-100 text-gray-800'}`}>
+                      
+                      {/* Render Sources if available (Only for AI) */}
+                      {msg.role === 'ai' && msg.sources && msg.sources.length > 0 && (
+                        <div className="mb-3 p-2 bg-gray-50 rounded border border-gray-200 not-prose">
+                          <p className="text-xs font-semibold text-gray-500 mb-2">Top 3 Sources:</p>
+                          <div className="flex flex-wrap gap-2">
+                             {msg.sources.map((src, idx) => (
+                               <SourcePreview key={idx} source={src} />
+                             ))}
+                          </div>
+                        </div>
+                      )}
+                      
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
                   </div>
@@ -126,7 +251,7 @@ function App() {
               </div>
             </div>
 
-            {/* Source Cards (Right Panel) */}
+            {/* Source Cards (Right Panel) - Keep existing */}
             <div className="w-80 bg-gray-50 rounded-lg border p-4 overflow-y-auto hidden lg:flex flex-col">
               <h3 className="font-semibold mb-3 text-gray-700 sticky top-0 bg-gray-50 pb-2 border-b">References</h3>
               <div className="space-y-3 flex-1">
