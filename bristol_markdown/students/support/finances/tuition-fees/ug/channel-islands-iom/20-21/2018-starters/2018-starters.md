@@ -1,0 +1,46 @@
+---
+title: Students starting in 2018/19
+description: Undergraduate tuition fees for the 2020/21 academic year, for Channel Islands and Isle of Man students who started in 2018/19.
+url: "https://www.bristol.ac.uk/students/support/finances/tuition-fees/ug/channel-islands-iom/20-21/2018-starters/"
+date: 2026-01-11
+---
+
+## Fee changes
+
+You are charged the 'home' tuition fee plus a fee supplement. Your fee supplement is equal to the amount of funding the University gets from the Office for Students for UK students.
+
+* Home fees may increase for subsequent years of your programme in line with UK Government policy.
+* Supplements may also change for subsequent years of your programme in line with the latest Office for Students grant funding allocations published at the time the fee is agreed.
+
+## Tuition fees by faculty
+
+2020/21 undergraduate Channel Island and Isle of Man fees for students who started in 2018/19
+
+| Faculty | Full-time fee |
+| --- | --- |
+| Arts (check fee exceptions table) | £9,250 (no supplement) |
+| Engineering | £10,750 (including £1,500 supplement) |
+| Health Sciences: Clinical Medicine, Dentistry and Veterinary Science | £19,250 (including supplement of £10,000) |
+| Health Sciences: Pre-clinical Medicine, Dentistry and Veterinary Science | £10,750 (including £1,500 supplement) |
+| Life Sciences | £10,750 (including £1,500 supplement) |
+| Science | £10,750 (including £1,500 supplement) |
+| Social Sciences and Law (check fee exceptions table) | £9,250 (no supplement) |
+
+## Arts and Social Sciences & Law tuition fee exceptions
+
+There are some courses within the Faculties of Arts and Social Sciences & Law which have a different fee to the rest of their faculty. Check the table to find out if your course is one of these. 
+
+Arts and Social Sciences & Law tuition fee exceptions
+
+| Course title | UCAS code | Full-time fee |
+| --- | --- | --- |
+| Film and English | 6T3X | £10,750 (including supplement of £1,500) |
+| Film and Television | 4M5N | £10,750 (including supplement of £1,500) |
+| Film and a Modern Language | 2LK6, 4F29, 4L92, 4PP8, L288 | £10,750 (including supplement of £1,500) |
+| Innovation Programmes | XD50, F805, V104, N204, W304, F306, C804, 2Q50, G404, H604, 4M50 | £10,750 (including supplement of £1,500) |
+| Music | W300 | £10,750 (including supplement of £1,500) |
+| Music and a Modern Language | WR31, WR32, WR33 | £10,750 (including supplement of £1,500) |
+| Theatre and Film | 4KDU | £10,750 (including supplement of £1,500) |
+| Theatre and English | 4CC8 | £10,750 (including supplement of £1,500) |
+| Theatre and a Modern Language | W43F, 21C7, 22FF, R2D8, 4D8C | £10,750 (including supplement of £1,500) |
+| Theatre and Performance Studies | 2Q3W | £10,750 (including supplement of £1,500) |

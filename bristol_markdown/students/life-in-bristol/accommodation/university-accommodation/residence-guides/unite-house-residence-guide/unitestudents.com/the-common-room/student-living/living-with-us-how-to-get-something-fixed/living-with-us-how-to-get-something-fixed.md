@@ -1,0 +1,15 @@
+---
+title: Document not found
+url: "https://www.bristol.ac.uk/students/life-in-bristol/accommodation/university-accommodation/residence-guides/unite-house-residence-guide/unitestudents.com/the-common-room/student-living/living-with-us-how-to-get-something-fixed/"
+date: 2026-01-11
+---
+
+# Page not found
+
+The page may no longer exist, or the link you used may be broken.
+
+Go to the [University of Bristol homepage](https://www.bristol.ac.uk/).
+
+Status code: 404
+
+[Search the website](https://www.bristol.ac.uk/search/)
