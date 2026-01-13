@@ -37,7 +37,7 @@ You can cancel your accommodation contract before the tenancy start date by emai
 
 If you cancel your accommodation contract within seven days of completing your room booking, you will receive a full refund for your £250 rent in advance payment (if applicable). You will not be liable for any further payments. 
 
-If you cancel your accommodation contract after seven days of completing your room booking, you will remain liable for the full accommodation fee unless you find a replacement tenant. Read more on our [nomination](http://www.bristol.ac.uk/accommodation/about/nomination-properties/) [properties](http://www.bristol.ac.uk/accommodation/about/nomination-properties/) page.
+If you cancel your accommodation contract after seven days of completing your room booking, you will remain liable for the full accommodation fee unless you find a replacement tenant. Read more on our [nomination](/accommodation/about/nomination-properties/) [properties](/accommodation/about/nomination-properties/) page.
 
 ### Students who have been allocated Deans Court or Woodland Court
 

@@ -14,6 +14,8 @@ interface SourceDoc {
   id: number;
   content: string;
   metadata: SourceMetadata;
+  score?: number;
+  date?: string;
 }
 
 interface SearchHit {

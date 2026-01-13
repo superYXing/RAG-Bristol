@@ -1,0 +1,347 @@
+Source File: C:\Users\37011\Desktop\RAG-Bristol\bristol_markdown\students\life-in-bristol\campus\cafes\cafes.md
+Total Chunks: 16
+
+==================== Chunk 1 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+
+Content:
+> Find something to eat or drink on campus. Visit one of our Source cafés and bars for locally-sourced and sustainable food and drink.  
+Source is our in-house catering brand and we care about the food we produce and we care about you, our customers. Pop along to your nearest Source to share our passion for excellent food.
+--------------------------------------------------
+
+==================== Chunk 2 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source cafés
+
+Content:
+Find out where they are, opening hours and what is on the menu.
+--------------------------------------------------
+
+==================== Chunk 3 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source cafés
+  h3: Beacon House Source café
+
+Content:
+#### Hot Drinks  
+[Change Please Coffee](https://changeplease.org/), alongside rich hot chocolate and speciality teas.  
+#### Cold Drinks  
+Refreshing fruit smoothies, iced tea and coffees.  
+#### Food  
+Fresh paninis, sandwiches, pies, and sausage rolls. Plus a selection of confectionery & snacks.  
+#### Opening times  
+Monday to Friday 8:30am to 4pm.  
+Out of term hours may vary.  
+#### Service  
+Eat in and takeaway. Open to staff, public and students.  
+#### Address  
+Queens Road, Clifton Triangle, Bristol, BS8 1SE  
+[Find us on Google maps](https://goo.gl/maps/shCX4BWFzLcKPJ7s6)
+--------------------------------------------------
+
+==================== Chunk 4 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source cafés
+  h3: Biomedical Science Building Source café
+
+Content:
+This café offers handmade Fairtrade artisan coffee and a wide range of tea. We also have a range of cold drinks, including iced coffee, fruit and vegetable smoothies. We serve hot and cold food, soups, sandwiches, paninis, morning pastries, and snacks.  
+#### Opening times  
+Monday to Friday 8:30 am to 4 pm.  
+Out of term times may vary.  
+#### Service  
+Eat in and takeaway. Open to staff and students.  
+#### Address  
+Biomedical Science Building, University Walk, Bristol BS8 1TR  
+[Find us on Google maps](https://www.google.com/maps/place/Biomedical+Sciences+Building/@51.4570384,-2.6008287,17z/data=!4m13!1m7!3m6!1s0x48718e763ce565bb:0xd3995388e5865bcc!2sBristol+BS1+2LY!3b1!8m2!3d51.4586111!4d-2.5951971!3m4!1s0x48718dd8feed83a5:0x22976c9c7187da40!8m2!3d51.4575679!4d-2.6003056)
+--------------------------------------------------
+
+==================== Chunk 5 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source cafés
+  h3: Chemistry Building Source café
+
+Content:
+We serve a variety of hot and cold food, cakes, snacks, and confectionery. Our range of hot drinks includes Clifton coffee roasters coffee, hot chocolate, and tea. Cold drinks include fruit juices and cans of water. Cold drinks include fruit juices, smoothies, and chilled cans.  
+If you’re looking for something to eat, we serve hot and cold food, including sausage rolls, and sandwiches, as well as a range of confectionary and snack items.  
+#### Opening times  
+Monday to Friday 9 am to 3:30 pm.  
+Out of term hours may vary.  
+#### Service  
+Eat in and takeaway. Open to staff and students.  
+#### Address  
+Cantock’s Close, Bristol, BS8 1TS  
+[Find us on Google maps](https://goo.gl/maps/Fc1b9SXHkt2FsePH6)
+--------------------------------------------------
+
+==================== Chunk 6 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source cafés
+  h3: Dental School Source café
+
+Content:
+We serve a variety of hot and cold food, cakes, snacks and confectionery. Our range of hot drinks includes Clifton coffee roasters coffee, hot chocolate and tea. Cold drinks include fruit and vegetable smoothies.  
+We serve hot and cold food, including sausage rolls, jacket potatoes, toast and sandwiches, as well as a range of confectionary and snack items.  
+£1.20 soup & roll available here.  
+#### Opening times  
+Monday to Friday 9 am to 3 pm.  
+Out of term hours may vary.  
+#### Service  
+Takeaway. Open to staff and students.  
+#### Address  
+1 Trinity Quay, Avon Street, Bristol, BS2 0PT  
+[Find us on Google maps](https://www.google.com/maps/place/Bristol+BS2+0PT/@51.4528232,-2.5858664,17z/data=!3m1!4b1!4m6!3m5!1s0x48718e7ad36350f7:0x618095a2d19d723d!8m2!3d51.4528528!4d-2.5833788!16s%2Fg%2F1tph15mf?entry=ttu)
+--------------------------------------------------
+
+==================== Chunk 7 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source cafés
+  h3: Langford Source café
+
+Content:
+We serve a variety of hot and cold food, cakes, snacks and confectionery. Our range of hot drinks includes Clifton coffee roasters coffee, hot chocolate and tea. Cold drinks include fruit and vegetable smoothies.  
+If you’re looking for something to eat, we serve hot and cold food, including £1.20 soup and roll, sausage rolls, paninis, jacket potatoes and sandwiches, as well as a range of confectionary and snack items  
+#### Opening times  
+Monday to Friday 8:30 am to 4 pm  
+Out of term times may vary.  
+#### Service  
+Eat in and takeaway. Open to the public.  
+#### Address  
+Langford House, Langford, Bristol, BS40 5DU  
+[Find us on Google maps](https://www.google.com/maps/place/Source+Cafe/@51.344319,-2.7797996,18z/data=!4m13!1m7!3m6!1s0x4871f5d9a0daa781:0xf086a831f4751a16!2sLangford,+Bristol+BS40+5DU!3b1!8m2!3d51.3435292!4d-2.7796923!3m4!1s0x4871f5463ad40f1d:0xeebac707b18617b2!8m2!3d51.3429954!4d-2.7793673)
+--------------------------------------------------
+
+==================== Chunk 8 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source cafés
+  h3: Merchant Venturers Building Source cafe
+
+Content:
+The University's dedicated Jacket potato bar, with a range of fresh hot and cold toppings. Alongside a small grab and go range including freshly baked pastries and cookies.  
+Our refreshments range from Clifton coffee roasters coffee, fairtrade teas, smoothies and chilled drinks.  
+£1.20 soup & roll available here.  
+#### Opening times  
+Monday to Friday 9:30 am to 4 pm.  
+Out of term hours may vary.  
+#### Service  
+Eat in and takeaway. Open to staff and students.  
+#### Address  
+75 Woodland Road, Bristol, BS8 1UB  
+[Find us on Google maps](https://goo.gl/maps/4eD3ZZLvVDPa7rXS6)
+--------------------------------------------------
+
+==================== Chunk 9 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source cafés
+  h3: Priory Road Source café
+
+Content:
+#### Hot drinks  
+Costa Coffee, along with rich hot chocolate and speciality teas.  
+#### Cold Drinks  
+Refreshing fruit smoothies, iced tea and coffees.  
+#### Food  
+Fresh paninis, sandwiches, pies, and sausage rolls. Plus a selection of confectionery & snacks.  
+#### Opening times  
+Monday to Friday 8:30 am to 4 pm.  
+Out of term hours may vary.  
+#### Service  
+Eat in and takeaway. Open to staff and students.  
+#### Address  
+Social Sciences and Law, 12A Priory Road, Bristol, BS8 1TZ  
+[Find us on Google maps](https://www.google.com/maps/place/Priory+Road+Complex/@51.4585779,-2.603994,17z/data=!4m13!1m7!3m6!1s0x48718dd987c86933:0x4290ae98884e9a23!2sBristol+BS8+1TR!3b1!8m2!3d51.4567692!4d-2.6019523!3m4!1s0x48718ddc784c299d:0x75334f4dcdac617f!8m2!3d51.4600182!4d-2.6048843)
+--------------------------------------------------
+
+==================== Chunk 10 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source cafés
+  h3: Queens Building Source café
+
+Content:
+#### Hot Drinks  
+[Clifton Coffee Roasters](https://cliftoncoffee.co.uk/), alongside rich hot chocolate and speciality teas.  
+#### Cold Drinks  
+Fruit smoothies, iced tea and coffees.  
+#### Food  
+Fresh paninis, sandwiches, pies, and our own sausage rolls. Plus a selection of confectionery & snacks.  
+#### Opening times  
+Monday to Friday 8:30 am to 4 pm.  
+Out of term times may vary.  
+#### Service  
+Takeaway. Open to staff and students.  
+#### Address  
+Queens Building, University Walk, Bristol BS8 1TR  
+[Find us on Google maps](https://goo.gl/maps/Sw4bBNSBAXohVPHc7)
+--------------------------------------------------
+
+==================== Chunk 11 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source cafés
+  h3: Senate House Marketplace
+
+Content:
+Our chefs serve freshly baked pizzas, plant-based meals, and street food. Come here for breakfast open sandwiches, lunch, or a snack before heading into the Beckford bar. Award winning Clifton coffee, hot chocolate, and teas as well as fresh smoothies, homemade cookies, pastries, and cakes. [Follow us on Instagram](https://www.instagram.com/senatehouse_marketplace/)  
+#### Opening times  
+Monday to Friday 8:30 am to 5:30 pm.  
+Out of term hours may vary.  
+#### Service  
+Eat in and takeaway. Open to the public.  
+#### Address  
+Senate House, Tyndall Avenue, Bristol, BS8 1TH  
+[Find us on Google maps](https://www.google.com/maps/place/Senate+House,+Bristol+BS8+1TH/@51.4590715,-2.6055312,17z/data=!3m1!4b1!4m5!3m4!1s0x48718ddbee90a7bb:0xe9cc30cf4ec618b7!8m2!3d51.4590682!4d-2.6033425)
+--------------------------------------------------
+
+==================== Chunk 12 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source bars
+  h3: Balloon Bar
+
+Content:
+Located in the Richmond building, the Balloon bar is the student bar for Bristol.  
+Our offer includes Clifton coffee, fairtrade teas, bubble teas, and smoothies. We have a grab and go range including freshly baked pastries, cookies, loaded nachos, and pizza slices.  
+The bar serves a range of locally produced beers and ciders, including Bristol Beer Factory and Thatcher's, and a great range of student friendly cocktails and mocktails.  
+We also offer deals including a[lunch time hot food offer](https://www.bristolsu.org.uk/about-us/venues-and-shops/the-balloon-bar#:~:text=Luch%20Time%20Hot,with%20rice%3A%20%C2%A32.50) (Monday-Friday, term time only) 12 pm to 3 pm:  
+* Soup of the day with bread roll: £1.20
+* Curry with rice: £2.50  
+#### Opening times  
+Monday to Friday: 9 am to 10:30 pm.  
+Saturday: 10 am to 4:30 pm.  
+Out of term times may vary.  
+#### Service  
+Eat and drink in. Open to the public.  
+#### Address  
+Richmond Building, 105 Queens Rd, Clifton, Bristol BS8 1LN
+--------------------------------------------------
+
+==================== Chunk 13 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source bars
+  h3: Balloon Bar
+
+Content:
+Saturday: 10 am to 4:30 pm.  
+Out of term times may vary.  
+#### Service  
+Eat and drink in. Open to the public.  
+#### Address  
+Richmond Building, 105 Queens Rd, Clifton, Bristol BS8 1LN  
+[Find us on Google maps](https://www.google.com/maps/place/Balloon+Bar/@51.4565844,-2.6153364,17z/data=!3m1!4b1!4m5!3m4!1s0x48718d1e11c86eb1:0x7356592a0b896d41!8m2!3d51.4566542!4d-2.613343)  
+#### Website  
+[The Balloon Bar](https://www.bristolsu.org.uk/about-us/venues-and-shops/the-balloon-bar)
+--------------------------------------------------
+
+==================== Chunk 14 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source bars
+  h3: The Beckford
+
+Content:
+The Beckford bar is the space where students and staff can come and relax. We serve local beers, ciders, wine, an array of spirits and snacks, and bubble tea. We have a full AV system and projector for student-led and major sporting events.  
+Serving fresh pizza from 11.30 amhi.  
+Stop by for weekly special offers on both food and drink.  
+#### Opening times  
+Monday to Friday 9:30am to 10:30pm.  
+Out of term times may vary.  
+#### Service  
+Eat in and takeaway (food). Open to the public.  
+#### Address  
+Senate House, Tyndall Avenue, Bristol, BS8 1TH  
+[Find us on Google maps](https://www.google.com/maps/place/The+Beckford/@51.4588369,-2.6032302,20z/data=!4m5!3m4!1s0x48718d55896765cd:0x17b3d4e0b3584c!8m2!3d51.4588235!4d-2.6034324)
+--------------------------------------------------
+
+==================== Chunk 15 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source bars
+  h3: Hiatt Baker bar
+
+Content:
+A fully bookable event space, ideal for student groups, societies, and staff socials.  
+Located on the Stoke Bishop campus, it features:  
+* a fully stocked bar
+* sound system & screen
+* pool table.  
+Contact [uob-catering@bristol.ac.uk](mailto:uob-catering@bristol.ac.uk) to talk through your requirements.  
+**Address**  
+Hiatt Baker hall, main building  
+Parry's lane  
+Bristol  
+BS9 1AD  
+[Find us on Google maps](https://maps.app.goo.gl/Vq9gXP71jEV6Gpfk6)
+--------------------------------------------------
+
+==================== Chunk 16 ====================
+Metadata:
+  title: Cafés and bars
+  description: University Source café locations and opening times.
+  url: https://www.bristol.ac.uk/students/life-in-bristol/campus/cafes/
+  date: 2026-01-11
+  h2: Source bars
+  h3: Coombe Dingle bar
+
+Content:
+Coombe Dingle is now part of the Source family, offering one of the best student bar experiences around.  
+We’re serving up a great range of local beers, wines, spirits, and alcohol-free options. All at student-friendly prices.  
+The space is open to students and available for private bookings.  
+Opening hours may vary outside of term time.
+--------------------------------------------------
+

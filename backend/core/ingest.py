@@ -42,23 +42,24 @@ class DocumentProcessor:
                 base_metadata['date'] = str(base_metadata['date'])
             
             # 2. 从文件路径提取分类信息 (Category extraction from path)
+            # 用户要求不需要 category, subcategory, topic 这三个字段
             # 假设路径结构: .../bristol_markdown/{category}/{subcategory}/{topic}/{file}.md
             # 我们寻找 'bristol_markdown' 之后的路径部分
-            path_parts = os.path.normpath(file_path).split(os.sep)
-            try:
-                if 'bristol_markdown' in path_parts:
-                    idx = path_parts.index('bristol_markdown')
-                    # 获取 bristol_markdown 后的部分
-                    rel_parts = path_parts[idx+1:-1] # -1 去掉文件名
+            # path_parts = os.path.normpath(file_path).split(os.sep)
+            # try:
+            #     if 'bristol_markdown' in path_parts:
+            #         idx = path_parts.index('bristol_markdown')
+            #         # 获取 bristol_markdown 后的部分
+            #         rel_parts = path_parts[idx+1:-1] # -1 去掉文件名
                     
-                    if len(rel_parts) >= 1:
-                        base_metadata['category'] = rel_parts[0]
-                    if len(rel_parts) >= 2:
-                        base_metadata['subcategory'] = rel_parts[1]
-                    if len(rel_parts) >= 3:
-                        base_metadata['topic'] = rel_parts[2]
-            except Exception as e:
-                print(f"路径解析警告: {e}")
+            #         if len(rel_parts) >= 1:
+            #             base_metadata['category'] = rel_parts[0]
+            #         if len(rel_parts) >= 2:
+            #             base_metadata['subcategory'] = rel_parts[1]
+            #         if len(rel_parts) >= 3:
+            #             base_metadata['topic'] = rel_parts[2]
+            # except Exception as e:
+            #     print(f"路径解析警告: {e}")
 
             # --- 分块策略 ---
 
@@ -76,29 +77,8 @@ class DocumentProcessor:
                 # 对每个 header block 进行二次切分
                 chunks = self.text_splitter.create_documents([split.page_content], metadatas=[combined_metadata])
                 final_chunks.extend(chunks)
-            
-            # 转换为字典列表以便处理
-            processed_chunks = []
-            for chunk in final_chunks:
-                # 3. 内容增强 (Context Enrichment)
-                # 将标题和章节信息添加到内容开头，增强语义
-                title = chunk.metadata.get('title', '')
-                h2 = chunk.metadata.get('h2', '')
-                h3 = chunk.metadata.get('h3', '')
                 
-                context_prefix = f"Title: {title}\n"
-                if h2: context_prefix += f"Section: {h2}\n"
-                if h3: context_prefix += f"Subsection: {h3}\n"
-                
-                enhanced_content = f"{context_prefix}Content:\n{chunk.page_content}"
-                
-                doc_data = {
-                    "content": enhanced_content, # 使用增强后的内容
-                    "metadata": chunk.metadata
-                }
-                processed_chunks.append(doc_data)
-                
-            return processed_chunks
+            return final_chunks
         except Exception as e:
             print(f"处理文件 {file_path} 时出错: {e}")
             return []

@@ -48,6 +48,7 @@ frontend/.env.production.local
 
 # Database
 chroma_db/
+backend/chroma_db/
 *.sqlite3
 *.db
 
@@ -63,6 +64,7 @@ Thumbs.db
 # Logs
 logs/
 *.log
+backend/log/
 
 # Celery
 celerybeat-schedule
@@ -76,3 +78,6 @@ celerybeat.pid
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Test
+/backend/tests
