@@ -13,7 +13,7 @@ class VectorStore:
             self.client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIRECTORY)
             self.collection_name = settings.CHROMA_COLLECTION_NAME
             
-            device = "cpu"
+            device = "cuda"
             self.embedding_model = HuggingFaceBgeEmbeddings(
                 model_name=settings.EMBEDDING_MODEL_NAME,
                 model_kwargs={"device": device},

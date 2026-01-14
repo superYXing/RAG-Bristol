@@ -7,7 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from core.tasks import process_and_index_doc
 
-def offline_index(directory: str, extensions: list = ['.md'], mode: str = 'async'):
+def offline_index(directory: str, extensions: list = ['.md'], mode: str = 'sync'):
     """
     遍历目录，处理文件。
     mode: 'sync' (同步直接处理) | 'async' (通过 Celery 分发)
@@ -81,7 +81,7 @@ def offline_index(directory: str, extensions: list = ['.md'], mode: str = 'async
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Offline Indexing Script")
     parser.add_argument("--dir", type=str, default="../bristol_markdown", help="Directory containing Markdown files")
-    parser.add_argument("--mode", type=str, default="async", choices=["sync", "async"], 
+    parser.add_argument("--mode", type=str, default="sync", choices=["sync", "async"], 
                         help="Execution mode: 'sync' (direct) or 'async' (via Celery, default)")
     args = parser.parse_args()
     

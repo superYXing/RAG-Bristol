@@ -79,5 +79,12 @@ celerybeat.pid
 ehthumbs.db
 Thumbs.db
 
+# Streamlit runtime data
+.streamlit/chat_history.json
+
+# Local artifacts
+output.txt
+backend/output.txt
+ 
 # Test
 /backend/tests

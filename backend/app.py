@@ -9,6 +9,7 @@ import uuid
 import os
 import sys
 import asyncio
+from typing import List, Dict, Any
 
 # Add current directory to path so imports work
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -37,6 +38,10 @@ class SearchRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     query: str
+
+class SummarizeRequest(BaseModel):
+    query: str
+    docs: List[Dict[str, Any]]
 
 @app.post("/api/pipeline")
 async def pipeline(req: SearchRequest):
@@ -122,7 +127,26 @@ async def search(req: SearchRequest):
     request_id = uuid.uuid4().hex
     t0 = time.perf_counter()
     logger.info(json.dumps({"event": "api_search_start", "request_id": request_id, "query": req.query}, ensure_ascii=False))
+    
+    # Cache Lookup
+    cached_docs_str = semantic_cache.lookup(req.query, scope="search")
+    if cached_docs_str:
+        try:
+            cached_docs = json.loads(cached_docs_str)
+            if isinstance(cached_docs, list):
+                logger.info(json.dumps({"event": "api_search_cache_hit", "request_id": request_id, "ms": round((time.perf_counter() - t0) * 1000, 2)}, ensure_ascii=False))
+                return {"results": cached_docs}
+        except Exception as e:
+            logger.error(f"Cache parse failed: {e}")
+
     docs = await rag_retriever.retrieve(req.query, request_id=request_id)
+    
+    # Update Cache
+    try:
+        semantic_cache.update(req.query, json.dumps(docs, ensure_ascii=False), scope="search")
+    except Exception as e:
+        logger.error(f"Cache update failed: {e}")
+
     logger.info(json.dumps({"event": "api_search_end", "request_id": request_id, "ms": round((time.perf_counter() - t0) * 1000, 2), "results": len(docs)}, ensure_ascii=False))
     return {"results": docs}
 
@@ -152,6 +176,16 @@ async def chat(req: ChatRequest):
     
     return StreamingResponse(
         rag_generator.generate_stream(req.query, docs, request_id=request_id, cache_update_callback=lambda ans: semantic_cache.update(req.query, ans)),
+        media_type="text/event-stream"
+    )
+
+@app.post("/api/summarize")
+async def summarize(req: SummarizeRequest):
+    request_id = uuid.uuid4().hex
+    logger.info(json.dumps({"event": "api_summarize_start", "request_id": request_id, "query": req.query, "docs_count": len(req.docs)}, ensure_ascii=False))
+    
+    return StreamingResponse(
+        rag_generator.generate_stream(req.query, req.docs, request_id=request_id),
         media_type="text/event-stream"
     )
 

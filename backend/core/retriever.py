@@ -29,8 +29,8 @@ class RAGRetriever:
         if FlagReranker is not None:
             self.reranker = FlagReranker(
                 settings.RERANKER_MODEL_NAME,
-                use_fp16=os.getenv("RERANKER_FP16", "1") not in ("0", "false", "False"),
-                devices=os.getenv("RERANKER_DEVICES") or None
+                use_fp16=True,
+                devices="cuda"
             )
 
     async def retrieve(self, query: str, request_id: str = ""):
@@ -219,7 +219,7 @@ class RAGRetriever:
         
         请执行以下操作：
         1. 理解用户的意图。
-        2. 将查询翻译成英文（如果不是英文）。
+        2. 将查询翻译成英文（如果不是英文）,回答只包含英文。
         3. 提取核心关键词
         4. 输出仅包含关键词的字符串，用空格分隔。
         

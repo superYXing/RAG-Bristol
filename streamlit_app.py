@@ -1,555 +1,963 @@
 import json
 import os
+import random
 import re
+import sys
 import time
-import uuid
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
-from html import escape
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-import httpx
+import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
-# --- 配置与常量 ---
-st.set_page_config(
-    page_title="RAG-Bristol Assistant",
-    page_icon="🎓",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+try:
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+except Exception:
+    get_script_run_ctx = None
 
-# 布里斯托大学主色调
-UOB_RED = "#B01C2E"
-BACKEND_PORT = os.getenv("BACKEND_PORT", "8000")
-BACKEND_CHAT_URL = os.getenv("BACKEND_CHAT_URL") or f"http://localhost:{BACKEND_PORT}/api/chat"
-BACKEND_PIPELINE_URL = os.getenv("BACKEND_PIPELINE_URL") or f"http://localhost:{BACKEND_PORT}/api/pipeline"
+try:
+    from pydantic import BaseModel, Field, ValidationError
+except Exception:
+    BaseModel = object  # type: ignore
+    Field = lambda *args, **kwargs: None  # type: ignore
+    ValidationError = Exception  # type: ignore
 
-# --- 数据结构 ---
-@dataclass
-class SourceDoc:
+if __name__ == "__main__" and get_script_run_ctx is not None and get_script_run_ctx() is None:
+    print("检测到你在用 `python streamlit_app.py` 运行 Streamlit。")
+    print("请改用：")
+    print("  streamlit run .\\streamlit_app.py")
+    sys.exit(0)
+
+st.set_page_config(page_title="校园智能助手", layout="wide", initial_sidebar_state="expanded")
+
+
+STAGES: List[Tuple[str, str]] = [
+    ("rewrite", "rewrite"),
+    ("retrieve", "retrieve"),
+    ("rerank", "rerank"),
+    ("summary", "summary"),
+]
+
+def uuid4_hex() -> str:
+    import uuid
+
+    return uuid.uuid4().hex
+
+
+def _inject_css():
+    st.markdown(
+        """
+<style>
+    :root {
+        --uob-red: #B01C2E;
+        --uob-red-2: #D32F2F;
+        --bg: #ffffff;
+        --panel: #F7F7F9;
+        --text: #111827;
+        --muted: #6B7280;
+        --border: #E5E7EB;
+        --shadow: 0 10px 30px rgba(17,24,39,0.08);
+    }
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #FFF5F5 0%, #FFFFFF 100%);
+        border-right: 1px solid #F1C9CF;
+    }
+
+    h1, h2, h3 {
+        letter-spacing: -0.02em;
+        color: var(--text);
+    }
+
+    .uob-header {
+        height: 5px;
+        border-radius: 8px;
+        background: linear-gradient(90deg, var(--uob-red) 0%, #FFCDD2 60%, #FFFFFF 100%);
+        margin: 6px 0 18px 0;
+    }
+
+    .uob-card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: white;
+        box-shadow: var(--shadow);
+        padding: 14px 14px;
+    }
+
+    .uob-kv {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        color: var(--muted);
+        font-size: 0.92rem;
+        margin-top: 6px;
+    }
+
+    .uob-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-weight: 750;
+        font-size: 0.86rem;
+        letter-spacing: 0.01em;
+        border: 1px solid var(--border);
+    }
+
+    .uob-pill--high {
+        background: rgba(16, 185, 129, 0.10);
+        color: #047857;
+        border-color: rgba(16, 185, 129, 0.25);
+    }
+
+    .uob-pill--mid {
+        background: rgba(245, 158, 11, 0.12);
+        color: #92400E;
+        border-color: rgba(245, 158, 11, 0.30);
+    }
+
+    .uob-pill--low {
+        background: rgba(239, 68, 68, 0.10);
+        color: #B91C1C;
+        border-color: rgba(239, 68, 68, 0.25);
+    }
+
+    .uob-stepper {
+        width: 100%;
+        padding: 12px 12px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: linear-gradient(180deg, #FFFFFF 0%, #FAFAFB 100%);
+        box-shadow: var(--shadow);
+    }
+
+    .uob-steps {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        align-items: start;
+    }
+
+    .uob-step {
+        position: relative;
+        padding-left: 34px;
+        min-height: 36px;
+    }
+
+    .uob-step::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 3px;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        border: 2px solid var(--border);
+        background: white;
+        transition: all 320ms ease;
+    }
+
+    .uob-step::after {
+        content: "";
+        position: absolute;
+        left: 10px;
+        top: 26px;
+        width: 2px;
+        height: 24px;
+        background: var(--border);
+        transition: all 320ms ease;
+    }
+
+    .uob-step:last-child::after {
+        display: none;
+    }
+
+    .uob-step-label {
+        font-weight: 650;
+        color: var(--text);
+        font-size: 0.95rem;
+        line-height: 1.1rem;
+    }
+
+    .uob-step-sub {
+        margin-top: 3px;
+        font-size: 0.82rem;
+        color: var(--muted);
+        line-height: 1.05rem;
+    }
+
+    .uob-step.pending .uob-step-label { color: #374151; }
+    .uob-step.pending::before { border-color: var(--border); background: white; }
+
+    .uob-step.active::before {
+        border-color: transparent;
+        background: linear-gradient(135deg, #2563EB 0%, #22C55E 45%, #F59E0B 72%, #EF4444 100%);
+        box-shadow: 0 0 0 4px rgba(176,28,46,0.10);
+        animation: uobPulse 2s ease-in-out infinite;
+    }
+
+    .uob-step.done::before {
+        border-color: transparent;
+        background: linear-gradient(135deg, #10B981 0%, #22C55E 100%);
+    }
+
+    .uob-step.fail::before {
+        border-color: transparent;
+        background: linear-gradient(135deg, #EF4444 0%, #F97316 100%);
+    }
+
+    .uob-step-icon {
+        position: absolute;
+        left: 0;
+        top: 2px;
+        width: 22px;
+        height: 22px;
+        display: grid;
+        place-items: center;
+        color: white;
+        font-size: 0.85rem;
+        font-weight: 800;
+        pointer-events: none;
+    }
+
+    @keyframes uobPulse {
+        0%, 100% { transform: scale(1); filter: saturate(1); }
+        50% { transform: scale(1.03); filter: saturate(1.15); }
+    }
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def _stepper_html(active_stage: str, done: List[str], failed_stage: Optional[str]) -> str:
+    labels = {
+        "rewrite": ("rewrite", "关键词扩写 / 翻译"),
+        "retrieve": ("retrieve", "向量检索"),
+        "rerank": ("rerank", "重排序"),
+        "summary": ("summary", "生成总结"),
+    }
+    chunks = ['<div class="uob-stepper"><div class="uob-steps">']
+    for stage_id, _ in STAGES:
+        if failed_stage == stage_id:
+            state = "fail"
+            icon = "✗"
+        elif stage_id in done:
+            state = "done"
+            icon = "✓"
+        elif stage_id == active_stage:
+            state = "active"
+            icon = ""
+        else:
+            state = "pending"
+            icon = ""
+        title, sub = labels[stage_id]
+        chunks.append(
+            f"""
+<div class="uob-step {state}">
+  <div class="uob-step-icon">{icon}</div>
+  <div class="uob-step-label">{title}</div>
+  <div class="uob-step-sub">{sub}</div>
+</div>
+""".strip()
+        )
+    chunks.append("</div></div>")
+    return "\n".join(chunks)
+
+
+class _SearchHit(BaseModel):  # type: ignore[misc]
+    id: Optional[str] = None
+    content: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)  # type: ignore[assignment]
+    date: Optional[str] = None
+    score: Optional[float] = None
+    rerank_score: Optional[float] = None
+
+
+class _SearchResponse(BaseModel):  # type: ignore[misc]
+    results: List[_SearchHit]
+
+
+class _SourceDoc(BaseModel):  # type: ignore[misc]
     id: int
     content: str
-    metadata: Dict[str, Any]
+    metadata: Dict[str, Any] = Field(default_factory=dict)  # type: ignore[assignment]
     score: Optional[float] = None
+    date: Optional[str] = None
 
-# --- CSS 样式注入 (Vibecoding 核心) ---
-def inject_custom_css():
-    st.markdown(f"""
-        <style>
-        /* 全局变量 */
-        :root {{
-            --uob-red: {UOB_RED};
-            --bg-card: #ffffff;
-            --text-secondary: #4b5563;
-        }}
 
-        /* 1. 侧边栏优化 */
-        section[data-testid="stSidebar"] {{
-            background-color: #f7f7f9;
-            border-right: 1px solid #e5e7eb;
-        }}
-
-        section[data-testid="stSidebar"] * {{
-            color: #111827;
-        }}
-        
-        /* 侧边栏新建对话按钮 (CTA) */
-        .sidebar-cta button {{
-            background-color: var(--uob-red) !important;
-            color: white !important;
-            border-radius: 8px;
-            border: none;
-            width: 100%;
-            height: 45px;
-            font-weight: 600;
-            transition: all 0.2s ease;
-        }}
-        .sidebar-cta button:hover {{
-            background-color: #8a1624 !important;
-            box-shadow: 0 4px 12px rgba(176, 28, 46, 0.3);
-        }}
-
-        /* 2. 主内容区 - Hero */
-        .hero-container {{
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            margin-top: 40px;
-            margin-bottom: 40px;
-            text-align: center;
-        }}
-        .hero-title {{
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-            background: -webkit-linear-gradient(left, #111827, var(--uob-red));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }}
-        .hero-subtitle {{
-            color: var(--text-secondary);
-            font-size: 1.1rem;
-        }}
-
-        /* 3. 功能卡片网格 (Agent Cards) */
-        /* Streamlit的按钮很难完全自定义HTML结构，我们用CSS hack原生按钮 */
-        div.stButton > button.agent-card {{
-            background-color: var(--bg-card);
-            border: 1px solid #e5e7eb;
-            color: #111827;
-            border-radius: 12px;
-            height: 120px;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            justify-content: center;
-            padding: 16px;
-            text-align: left;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }}
-        div.stButton > button.agent-card:hover {{
-            border-color: var(--uob-red);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            color: var(--uob-red);
-        }}
-        div.stButton > button.agent-card p {{
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-            margin-top: 4px;
-            font-weight: 400;
-        }}
-
-        /* 4. 推荐胶囊 (Suggestions) */
-        div.suggestion-chip > button {{
-            border-radius: 999px;
-            border: 1px solid #d1d5db;
-            background-color: #ffffff;
-            color: #111827;
-            font-size: 0.85rem;
-            padding: 4px 16px;
-        }}
-        div.suggestion-chip > button:hover {{
-            background-color: #f3f4f6;
-            border-color: var(--uob-red);
-            color: #111827;
-        }}
-
-        /* 5. 引用卡片样式 */
-        .source-card {{
-            background-color: #ffffff;
-            border-left: 3px solid var(--uob-red);
-            padding: 10px;
-            margin-top: 8px;
-            margin-bottom: 8px;
-            border-radius: 0 8px 8px 0;
-            font-size: 0.85rem;
-        }}
-        .source-card a {{
-            color: #7dadff;
-            text-decoration: none;
-            font-weight: bold;
-        }}
-        .source-card a:hover {{
-            text-decoration: underline;
-        }}
-        
-        /* 隐藏 Streamlit 默认头部 */
-        header {{visibility: hidden;}}
-        </style>
-    """, unsafe_allow_html=True)
-
-# --- 辅助函数 ---
-
-def reset_chat():
-    """重置对话状态"""
-    st.session_state.messages = []
-    st.session_state.chat_started = False
-    st.session_state.current_query = ""
-
-def handle_suggestion_click(query_text):
-    """处理点击推荐或卡片"""
-    st.session_state.current_query = query_text
-    st.session_state.chat_started = True
-    # 强制重新运行以将 current_query 填入 chat_input (Streamlit 限制，可能无法直接填入，直接发送更流畅)
-    # 这里我们采用直接发送的逻辑
-    process_user_input(query_text)
-
-def _extract_citations(markdown_text: str) -> List[int]:
-    """从文本中提取 [1] [2] 引用编号"""
-    nums = set()
-    for m in re.finditer(r"\[(\d+)\]", markdown_text):
+def _post_json_with_retry(
+    url: str,
+    payload: Dict[str, Any],
+    timeout_s: float,
+    max_retries: int,
+) -> Dict[str, Any]:
+    last_exc: Optional[Exception] = None
+    for attempt in range(max_retries):
         try:
-            nums.add(int(m.group(1)))
-        except ValueError:
-            pass
-    return sorted(nums)
+            resp = requests.post(url, json=payload, timeout=timeout_s)
+            if 200 <= resp.status_code < 300:
+                data = resp.json()
+                if not isinstance(data, dict):
+                    raise ValueError("响应不是 JSON 对象")
+                return data
+            if resp.status_code in (408, 429) or 500 <= resp.status_code < 600:
+                raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:500]}")
+            raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:500]}")
+        except Exception as e:
+            last_exc = e
+            if attempt == max_retries - 1:
+                break
+            time.sleep(min(1.6, 0.25 * (2**attempt) + random.random() * 0.15))
+    raise last_exc or RuntimeError("请求失败")
 
-def _sources_cards_html(sources: List[SourceDoc], cited_indices: List[int]) -> str:
-    """生成漂亮的引用卡片 HTML"""
-    if not sources:
-        return ""
-    
-    html = "<div style='margin-top: 20px; border-top: 1px solid #444; padding-top: 10px;'><p style='color:#888; font-size:0.9rem;'>📚 参考来源</p>"
-    
-    # 过滤出被引用的来源，或者显示前3个相关的
-    relevant_sources = []
-    for s in sources:
-        if s.id in cited_indices:
-            relevant_sources.append(s)
-    
-    # 如果没有显式引用，但有检索结果，显示前2个作为相关推荐
-    if not relevant_sources and sources:
-        relevant_sources = sources[:2]
 
-    for s in relevant_sources:
-        # 尝试从 metadata 获取链接和标题
-        source_url = s.metadata.get("url") or s.metadata.get("source") or "#"
-        # 简单的标题处理
-        title = s.metadata.get("title") or Path(str(source_url)).name or "Document"
-        
-        html += f"""
-        <div class="source-card">
-            <span style="color: var(--uob-red); font-weight:bold;">[{s.id}]</span>
-            <a href="{source_url}" target="_blank">{escape(title)}</a>
-            <div style="color: #aaa; font-size: 0.8rem; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
-                {escape(s.content[:150])}...
-            </div>
-        </div>
-        """
-    html += "</div>"
-    return html
+def _iter_stream_with_retry(
+    url: str,
+    payload: Dict[str, Any],
+    timeout_s: float,
+    max_retries: int,
+) -> Iterable[str]:
+    last_exc: Optional[Exception] = None
+    for attempt in range(max_retries):
+        received_any = False
+        try:
+            resp = requests.post(
+                url,
+                json=payload,
+                stream=True,
+                timeout=(min(3.0, timeout_s), timeout_s),
+            )
+            if not (200 <= resp.status_code < 300):
+                raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:500]}")
+            for chunk in resp.iter_content(chunk_size=2048, decode_unicode=True):
+                if not chunk:
+                    continue
+                received_any = True
+                yield chunk
+            return
+        except Exception as e:
+            last_exc = e
+            if received_any or attempt == max_retries - 1:
+                break
+            time.sleep(min(1.6, 0.25 * (2**attempt) + random.random() * 0.15))
+    raise last_exc or RuntimeError("流式请求失败")
 
-def _stream_chat(query: str):
-    """生成器：流式获取后端响应"""
+
+def _render_markdown_enhanced(md: str, key: str):
+    md_json = json.dumps(md)
+    height = max(260, min(980, 260 + int(len(md) / 6)))
+    components.html(
+        f"""
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.11.1/styles/github.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.11.1/lib/highlight.min.js"></script>
+    <style>
+      :root {{
+        --uob-red: #B01C2E;
+        --text: #111827;
+        --muted: #6B7280;
+        --border: #E5E7EB;
+      }}
+      body {{
+        margin: 0;
+        background: transparent;
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Symbol";
+      }}
+      .wrap {{
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: white;
+        padding: 14px 14px 10px 14px;
+        animation: fadeIn 420ms ease both;
+      }}
+      @keyframes fadeIn {{
+        from {{ opacity: 0; transform: translateY(6px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+      }}
+      .topbar {{
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-bottom: 10px;
+      }}
+      .btn {{
+        border: 1px solid var(--border);
+        background: white;
+        color: var(--text);
+        border-radius: 10px;
+        padding: 6px 10px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 220ms ease;
+      }}
+      .btn:hover {{
+        border-color: rgba(176,28,46,0.5);
+        box-shadow: 0 6px 18px rgba(17,24,39,0.08);
+        transform: translateY(-1px);
+      }}
+      .btn.primary {{
+        border-color: rgba(176,28,46,0.5);
+        color: var(--uob-red);
+      }}
+      .content {{
+        overflow-wrap: anywhere;
+      }}
+      .content a {{
+        color: var(--uob-red);
+        text-decoration: none;
+      }}
+      .content a:hover {{
+        text-decoration: underline;
+      }}
+      pre {{
+        position: relative;
+        padding-top: 30px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        overflow: auto;
+      }}
+      pre code {{
+        font-size: 13px;
+      }}
+      .codebtn {{
+        position: absolute;
+        top: 6px;
+        right: 8px;
+        border: 1px solid var(--border);
+        background: white;
+        border-radius: 9px;
+        padding: 4px 8px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 220ms ease;
+      }}
+      .codebtn:hover {{
+        border-color: rgba(176,28,46,0.5);
+        transform: translateY(-1px);
+      }}
+      @media (max-width: 640px) {{
+        .wrap {{ padding: 12px 10px; }}
+      }}
+    </style>
+  </head>
+  <body>
+    <div class="wrap" id="{key}">
+      <div class="topbar">
+        <button class="btn primary" id="{key}-copyAll">复制全文</button>
+      </div>
+      <div class="content" id="{key}-content"></div>
+    </div>
+    <script>
+      const mdText = {md_json};
+      const md = window.markdownit({{ html: false, linkify: true, breaks: true }});
+      const root = document.getElementById("{key}-content");
+      root.innerHTML = md.render(mdText);
+
+      root.querySelectorAll("pre code").forEach((block) => {{
+        try {{ window.hljs.highlightElement(block); }} catch (e) {{}}
+      }});
+
+      root.querySelectorAll("pre").forEach((pre) => {{
+        const code = pre.querySelector("code");
+        if (!code) return;
+        const btn = document.createElement("button");
+        btn.className = "codebtn";
+        btn.textContent = "复制";
+        btn.addEventListener("click", async () => {{
+          try {{
+            await navigator.clipboard.writeText(code.innerText);
+            btn.textContent = "已复制";
+            setTimeout(() => btn.textContent = "复制", 1200);
+          }} catch (e) {{
+            btn.textContent = "失败";
+            setTimeout(() => btn.textContent = "复制", 1200);
+          }}
+        }});
+        pre.appendChild(btn);
+      }});
+
+      document.getElementById("{key}-copyAll").addEventListener("click", async () => {{
+        const btn = document.getElementById("{key}-copyAll");
+        try {{
+          await navigator.clipboard.writeText(mdText);
+          btn.textContent = "已复制";
+          setTimeout(() => btn.textContent = "复制全文", 1200);
+        }} catch (e) {{
+          btn.textContent = "失败";
+          setTimeout(() => btn.textContent = "复制全文", 1200);
+        }}
+      }});
+    </script>
+  </body>
+</html>
+""",
+        height=height,
+        scrolling=True,
+    )
+
+
+def _format_doc_card(doc: _SearchHit) -> str:
+    meta = doc.metadata or {}
+    title = str(meta.get("title") or "无标题")
+    url = str(meta.get("url") or "").strip()
+    score = doc.score
+    score_val = float(score) if score is not None else None
+    score_str = f"{score_val:.4f}" if score_val is not None else "-"
+    if score_val is None:
+        score_cls = "uob-pill"
+    elif score_val >= 0.80:
+        score_cls = "uob-pill uob-pill--high"
+    elif score_val >= 0.65:
+        score_cls = "uob-pill uob-pill--mid"
+    else:
+        score_cls = "uob-pill uob-pill--low"
+    preview = (doc.content or "").strip().replace("\n", " ")
+    preview = re.sub(r"\s+", " ", preview)[:260]
+    title_html = (
+        f'<a href="{url}" target="_blank" rel="noopener noreferrer">{title}</a>' if url else title
+    )
+    return f"""
+<div class="uob-card">
+  <div style="font-weight:750;color:#111827;font-size:1.00rem;line-height:1.2rem;">{title_html}</div>
+  <div class="uob-kv">
+    <span class="{score_cls}">score: {score_str}</span>
+  </div>
+  <div style="margin-top:8px;color:#374151;font-size:0.92rem;line-height:1.25rem;">{preview}...</div>
+</div>
+""".strip()
+
+
+_inject_css()
+
+def _history_file_path() -> Path:
+    base_dir = Path(__file__).resolve().parent / ".streamlit"
+    base_dir.mkdir(parents=True, exist_ok=True)
+    return base_dir / "chat_history.json"
+
+
+def _load_history() -> List[Dict[str, Any]]:
+    p = _history_file_path()
+    if not p.exists():
+        return []
     try:
-        with httpx.stream(
-            "POST", 
-            BACKEND_CHAT_URL, 
-            json={"query": query}, 
-            timeout=60.0
-        ) as response:
-            if response.status_code != 200:
-                yield f"后端错误: {response.status_code}", []
-                return
+        data = json.loads(p.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return [x for x in data if isinstance(x, dict)]
+    except Exception:
+        return []
+    return []
 
-            full_text = ""
-            sources = []
-            
-            for line in response.iter_lines():
-                if not line:
-                    continue
-                
-                # 处理来源元数据
-                if line.startswith("__SOURCES__:"):
-                    try:
-                        json_str = line[len("__SOURCES__:"):]
-                        data = json.loads(json_str)
-                        # 将 JSON 转换回 SourceDoc 对象
-                        sources = [SourceDoc(**item) for item in data]
-                    except:
-                        pass
-                    continue
-                
-                # 累积文本
-                full_text += line
-                yield full_text, sources
 
-    except Exception as e:
-        yield f"连接错误: {str(e)}", []
+def _save_history(items: List[Dict[str, Any]]) -> None:
+    p = _history_file_path()
+    p.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
 
-def _fetch_pipeline_data(query: str) -> Dict[str, Any]:
-    resp = httpx.post(BACKEND_PIPELINE_URL, json={"query": query}, timeout=30.0)
-    resp.raise_for_status()
-    data = resp.json()
-    return data if isinstance(data, dict) else {}
 
-def _render_pipeline_steps(container, steps: List[Dict[str, str]]):
-    with container.container():
-        cols = st.columns(len(steps))
-        for i, step in enumerate(steps):
-            with cols[i]:
-                st.markdown(f"**{step['label']}**")
-                st.caption(step["status"])
+def _make_title_from_messages(messages: List[Dict[str, Any]]) -> str:
+    for m in messages:
+        if m.get("role") == "user":
+            s = str(m.get("content") or "").strip()
+            if s:
+                return (s[:26] + "…") if len(s) > 26 else s
+    return "未命名会话"
 
-def _render_retrieved_docs(container, pipeline_data: Dict[str, Any]):
-    top_k = pipeline_data.get("top_k") or []
-    timing_ms = pipeline_data.get("timing_ms") or {}
-    rewritten_query = pipeline_data.get("rewritten_query") or ""
 
-    with container.container():
-        with st.expander("检索与重排结果", expanded=True):
-            if rewritten_query:
-                st.markdown(f"**Rewritten Query**：{rewritten_query}")
-            if timing_ms:
-                st.caption(
-                    f"rewrite {timing_ms.get('rewrite', 0)} ms · "
-                    f"vector_search {timing_ms.get('vector_search', 0)} ms · "
-                    f"rerank {timing_ms.get('rerank', 0)} ms · "
-                    f"total {timing_ms.get('total', 0)} ms"
-                )
-            if not top_k:
-                st.write("未检索到相关文档。")
-                return
+def _ensure_session_state():
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = _load_history()
+    if "current_session_id" not in st.session_state:
+        st.session_state.current_session_id = uuid4_hex()
+    if "doc_modal_open" not in st.session_state:
+        st.session_state.doc_modal_open = False
+    if "selected_doc" not in st.session_state:
+        st.session_state.selected_doc = None
 
-            for idx, doc in enumerate(top_k, start=1):
-                meta = doc.get("metadata") or {}
-                title = meta.get("title") or f"Document {idx}"
-                url = meta.get("url") or meta.get("source") or ""
-                score = doc.get("score")
-                rerank_score = doc.get("rerank_score")
-                date = doc.get("date") or meta.get("date") or ""
-                content = doc.get("content") or ""
 
-                header_parts = [f"[{idx}] {title}"]
-                if date:
-                    header_parts.append(str(date))
-                if rerank_score is not None:
-                    header_parts.append(f"rerank={rerank_score:.4f}" if isinstance(rerank_score, (int, float)) else f"rerank={rerank_score}")
-                if score is not None:
-                    header_parts.append(f"sim={score:.4f}" if isinstance(score, (int, float)) else f"sim={score}")
+def _persist_current_session():
+    session_id = st.session_state.current_session_id
+    messages = st.session_state.messages
+    title = _make_title_from_messages(messages)
+    now = datetime.now().isoformat(timespec="seconds")
 
-                st.markdown(" · ".join(header_parts))
-                if url:
-                    st.markdown(f"[打开链接]({url})")
-                st.markdown(content[:600] + ("..." if len(content) > 600 else ""))
-                st.divider()
+    items: List[Dict[str, Any]] = st.session_state.chat_history
+    existing = None
+    for it in items:
+        if it.get("id") == session_id:
+            existing = it
+            break
+    if existing is None:
+        existing = {"id": session_id, "created_at": now}
+        items.insert(0, existing)
+    existing["updated_at"] = now
+    existing["title"] = title
+    existing["messages"] = messages
+    st.session_state.chat_history = items
+    _save_history(items)
 
-def process_user_input(user_input: str):
-    """处理用户输入的主逻辑"""
-    if not user_input:
+
+def _start_new_chat():
+    st.session_state.current_session_id = uuid4_hex()
+    st.session_state.messages = [{"role": "assistant", "content": "你好，我是校园智能助手。请输入你的问题。"}]
+    _persist_current_session()
+
+
+def _open_doc_modal(doc: _SearchHit):
+    st.session_state.selected_doc = doc.model_dump()  # type: ignore[attr-defined]
+    st.session_state.doc_modal_open = True
+    st.rerun()
+
+
+def _render_doc_modal():
+    if not st.session_state.doc_modal_open:
+        return
+    raw = st.session_state.selected_doc
+    if not isinstance(raw, dict):
+        st.session_state.doc_modal_open = False
+        return
+    try:
+        doc = _SearchHit.model_validate(raw)  # type: ignore[attr-defined]
+    except Exception:
+        st.session_state.doc_modal_open = False
         return
 
-    st.session_state.chat_started = True
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    
-    # 强制刷新 UI 以显示用户消息，然后开始生成
-    # Streamlit 的执行模型决定了我们需要在下一次重绘时处理生成
-    # 但在函数内我们可以直接写 assistant 的占位符
+    title = str((doc.metadata or {}).get("title") or "文档内容")
+    url = str((doc.metadata or {}).get("url") or "").strip()
+    header = title if not url else f"[{title}]({url})"
+    content = doc.content or ""
 
-# --- 初始化 Session State ---
+    if hasattr(st, "dialog"):
+        @st.dialog("文档详情")
+        def _dlg():
+            st.markdown(header)
+            copy_key = f"doc_copy_{uuid4_hex()}"
+            components.html(
+                f"""
+<div style="display:flex;gap:8px;justify-content:flex-end;margin:6px 0 10px 0;">
+  <button id="{copy_key}" style="border:1px solid #E5E7EB;background:#fff;border-radius:10px;padding:6px 10px;cursor:pointer;">复制内容</button>
+</div>
+<pre style="white-space:pre-wrap;word-break:break-word;border:1px solid #E5E7EB;border-radius:12px;padding:12px;max-height:420px;overflow:auto;margin:0;">{json.dumps(content)[1:-1]}</pre>
+<script>
+  const btn = document.getElementById("{copy_key}");
+  btn.addEventListener("click", async () => {{
+    try {{
+      await navigator.clipboard.writeText({json.dumps(content)});
+      btn.textContent = "已复制";
+      setTimeout(() => btn.textContent = "复制内容", 1200);
+    }} catch (e) {{
+      btn.textContent = "失败";
+      setTimeout(() => btn.textContent = "复制内容", 1200);
+    }}
+  }});
+</script>
+""",
+                height=520,
+                scrolling=True,
+            )
+            if st.button("关闭", use_container_width=True):
+                st.session_state.doc_modal_open = False
+                st.session_state.selected_doc = None
+                st.rerun()
+
+        _dlg()
+    else:
+        with st.expander("文档详情", expanded=True):
+            st.markdown(header)
+            st.text_area("内容", value=content, height=360)
+            if st.button("关闭", use_container_width=True):
+                st.session_state.doc_modal_open = False
+                st.session_state.selected_doc = None
+                st.rerun()
+
+
+def _render_docs_interactive(docs: List[_SearchHit], scope: str):
+    for i, d in enumerate(docs):
+        st.markdown(_format_doc_card(d), unsafe_allow_html=True)
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            if st.button("查看全文", key=f"open_{scope}_{i}", use_container_width=True):
+                _open_doc_modal(d)
+        with c2:
+            u = str((d.metadata or {}).get("url") or "").strip()
+            if u:
+                if hasattr(st, "link_button"):
+                    st.link_button("打开链接", u, use_container_width=True)
+                else:
+                    st.markdown(f"[打开链接]({u})")
+
+
+_ensure_session_state()
+
 if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "chat_started" not in st.session_state:
-    st.session_state.chat_started = False
-if "current_query" not in st.session_state:
-    st.session_state.current_query = ""
+    st.session_state.messages = [{"role": "assistant", "content": "你好，我是校园智能助手。请输入你的问题。"}]
+    _persist_current_session()
 
-# ==========================================
-# 页面布局开始
-# ==========================================
+if "backend_url" not in st.session_state:
+    st.session_state.backend_url = "http://localhost:8000"
 
-inject_custom_css()
+st.markdown('<div class="uob-header"></div>', unsafe_allow_html=True)
+header_left, header_right = st.columns([1, 9], vertical_alignment="center")
+with header_left:
+    st.image(
+        "asserts\logo.png",
+        width=54,
+    )
+with header_right:
+    st.title("Campus AI Assistant")
 
-# --- 1. 左侧侧边栏 (Navigation) ---
 with st.sidebar:
-    # Logo 区域
-    col1, col2 = st.columns([1, 4])
-    with col1:
-        st.write("🎓") # 这里可以用 st.image 替换为布大 Logo
-    with col2:
-        st.markdown("<h3 style='margin:0; padding-top:5px;'>RAG-Bristol</h3>", unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # Call to Action: 新建对话
-    st.markdown('<div class="sidebar-cta">', unsafe_allow_html=True)
-    if st.button("➕ 开启新对话", key="new_chat_btn"):
-        reset_chat()
+    st.subheader("设置")
+    st.session_state.backend_url = st.text_input("后端地址", value=st.session_state.backend_url)
+    show_debug = st.toggle("显示调试信息", value=False)
+    if st.button("新会话", use_container_width=True):
+        _start_new_chat()
         st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.markdown("### 🕒 历史记录")
-    # 模拟历史记录 (实际项目中可以存入数据库)
-    st.markdown("""
-    <div style="color: #888; font-size: 0.9rem; padding-left: 10px;">
-        <p>📄 宿舍申请流程</p>
-        <p>📄 图书馆开放时间</p>
-        <p>📄 计算机学院选课</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
+    if st.button("清空当前对话", use_container_width=True):
+        st.session_state.messages = [{"role": "assistant", "content": "你好，我是校园智能助手。请输入你的问题。"}]
+        _persist_current_session()
+        st.rerun()
+
     st.markdown("---")
-    with st.expander("👤 用户设置"):
-        st.write("当前模型: Qwen 2.5 (Local)")
-        st.write("知识库版本: v2.1")
+    st.subheader("历史会话")
+    history_items: List[Dict[str, Any]] = st.session_state.chat_history
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    for it in history_items:
+        ts = str(it.get("updated_at") or it.get("created_at") or "")
+        day = ts[:10] if len(ts) >= 10 else "unknown"
+        grouped.setdefault(day, []).append(it)
 
-# --- 2. 右侧主内容区 ---
+    for day in sorted(grouped.keys(), reverse=True):
+        with st.expander(day, expanded=False):
+            for it in grouped[day]:
+                sid = str(it.get("id") or "")
+                title = str(it.get("title") or "未命名会话")
+                if st.button(title, key=f"hist_{sid}", use_container_width=True):
+                    msgs = it.get("messages")
+                    if isinstance(msgs, list):
+                        st.session_state.current_session_id = sid
+                        st.session_state.messages = msgs
+                        st.rerun()
 
-# 如果还没有开始聊天 (Empty State)
-if not st.session_state.chat_started and not st.session_state.messages:
-    # Hero Section
-    st.markdown("""
-        <div class="hero-container">
-            <div class="hero-title">Hello, Student 👋</div>
-            <div class="hero-subtitle">我是您的布里斯托大学 AI 校园助手，有什么可以帮您？</div>
-        </div>
-    """, unsafe_allow_html=True)
 
-    # Agent / Feature Grid
-    st.markdown("#### 💡 常用功能")
-    c1, c2, c3, c4 = st.columns(4)
-    
-    # 使用 callback 处理点击
-    def click_card(prompt):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        st.session_state.chat_started = True
-        
-    with c1:
-        # Hack: 将 button 的 key 设为 distinct，利用 css class "agent-card" 样式化
-        if st.button("📚 图书馆服务\n\n查询借阅规则、开放时间和自习室。", key="card_lib"):
-            click_card("查找 Arts and Social Sciences Library 的开放时间和借书规则")
-            st.rerun()
-            
-    with c2:
-        if st.button("🗺️ 校园地图\n\n寻找 Senate House 或具体教学楼位置。", key="card_map"):
-            click_card("Senate House 在哪里？怎么去 Queens Building？")
-            st.rerun()
-
-    with c3:
-        if st.button("📅 考试与课表\n\n查询考试安排或学期关键日期。", key="card_exam"):
-            click_card("2026年第一学期的考试时间表是什么时候？")
-            st.rerun()
-
-    with c4:
-        if st.button("💻 IT 支持\n\nEduroam 连接指南或软件下载。", key="card_it"):
-            click_card("如何连接 Eduroam Wi-Fi？打印机怎么设置？")
-            st.rerun()
-
-    # Suggestion Chips
-    st.write("") # Spacer
-    st.markdown("#### 🎯 试一试")
-    
-    s1, s2, s3, s4 = st.columns([1, 1, 1, 1])
-    # 由于 Streamlit button 无法直接横向紧凑排列，我们使用 columns
-    with s1:
-        if st.button("住宿费怎么交？", key="sug_1", help="点击发送"):
-            click_card("住宿费怎么交？有哪些支付方式？")
-            st.rerun()
-    with s2:
-        if st.button("申请延期提交", key="sug_2"):
-            click_card("我有特殊情况，怎么申请作业延期提交 (extenuating circumstances)？")
-            st.rerun()
-    with s3:
-        if st.button("注册校医 GP", key="sug_3"):
-            click_card("国际学生如何注册校医 (GP)？")
-            st.rerun()
-
-# 如果已经开始聊天 (Chat Flow)
-else:
-    # 渲染历史消息
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            if msg["role"] == "assistant":
-                st.markdown(msg["content"])
-                # 如果历史消息里存了 sources，也可以在这里渲染
-                if "sources" in msg:
-                    cards = _sources_cards_html([SourceDoc(**s) for s in msg["sources"]], _extract_citations(msg["content"]))
-                    st.markdown(cards, unsafe_allow_html=True)
-            else:
-                st.markdown(msg["content"])
-
-    # 如果最后一条是用户的，说明需要生成回复 (处理刚从卡片点击进来的情况)
-    if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
-        with st.chat_message("assistant"):
-            pipeline_steps_placeholder = st.empty()
-            retrieved_docs_placeholder = st.empty()
-            answer_placeholder = st.empty()
-            refs_placeholder = st.empty()
-            
-            final_text = ""
-            final_sources = []
-            
-            # 获取用户最后一条输入
-            user_query = st.session_state.messages[-1]["content"]
-            
-            try:
-                steps = [
-                    {"id": "retrieve", "label": "Retrieve", "status": "进行中"},
-                    {"id": "rerank", "label": "Rerank", "status": "等待中"},
-                    {"id": "generate", "label": "Generate", "status": "等待中"},
-                ]
-                _render_pipeline_steps(pipeline_steps_placeholder, steps)
-
-                pipeline_data = None
-                pipeline_rendered = False
-                first_token_seen = False
-
-                with ThreadPoolExecutor(max_workers=1) as executor:
-                    pipeline_future = executor.submit(_fetch_pipeline_data, user_query)
-
-                    for partial_text, partial_sources in _stream_chat(user_query):
-                        if not first_token_seen and partial_text:
-                            first_token_seen = True
-                            steps = [
-                                {"id": "retrieve", "label": "Retrieve", "status": "进行中"},
-                                {"id": "rerank", "label": "Rerank", "status": "进行中"},
-                                {"id": "generate", "label": "Generate", "status": "进行中"},
-                            ]
-                            _render_pipeline_steps(pipeline_steps_placeholder, steps)
-
-                        if (not pipeline_rendered) and pipeline_future.done():
+for i, message in enumerate(st.session_state.messages):
+    with st.chat_message(message["role"]):
+        if message["role"] == "assistant":
+            _render_markdown_enhanced(message.get("content") or "", key=f"md_hist_{i}")
+            docs = message.get("docs") or []
+            if docs:
+                with st.expander(f"检索结果 ({len(docs)})", expanded=False):
+                    parsed_docs: List[_SearchHit] = []
+                    for d in docs:
+                        if isinstance(d, dict):
                             try:
-                                pipeline_data = pipeline_future.result() or {}
+                                parsed_docs.append(_SearchHit.model_validate(d))  # type: ignore[attr-defined]
                             except Exception:
-                                pipeline_data = {}
-                            pipeline_rendered = True
-                            _render_retrieved_docs(retrieved_docs_placeholder, pipeline_data)
-                            steps = [
-                                {"id": "retrieve", "label": "Retrieve", "status": "完成"},
-                                {"id": "rerank", "label": "Rerank", "status": "完成"},
-                                {"id": "generate", "label": "Generate", "status": "进行中"},
-                            ]
-                            _render_pipeline_steps(pipeline_steps_placeholder, steps)
+                                continue
+                    _render_docs_interactive(parsed_docs, scope=f"hist_{i}")
+        else:
+            st.markdown(message.get("content") or "")
 
-                        final_text = partial_text
-                        final_sources = partial_sources
-                        # 实时渲染 Markdown + 光标效果
-                        answer_placeholder.markdown(final_text + "▌")
-                
-                # 完成后移除光标
-                answer_placeholder.markdown(final_text)
+_render_doc_modal()
 
-                if not pipeline_rendered:
+
+def _call_search(base_url: str, query: str) -> _SearchResponse:
+    url = base_url.rstrip("/") + "/api/search"
+    raw = _post_json_with_retry(url, {"query": query}, timeout_s=5.0, max_retries=3)
+    try:
+        return _SearchResponse.model_validate(raw)  # type: ignore[attr-defined]
+    except Exception as e:
+        raise RuntimeError(f"API 响应校验失败：{e}")
+
+
+def _extract_sources_and_text(stream_chunks: Iterable[str]) -> Tuple[List[_SourceDoc], str]:
+    buffer = ""
+    sources: List[_SourceDoc] = []
+    answer_parts: List[str] = []
+
+    for chunk in stream_chunks:
+        buffer += chunk
+        while True:
+            if buffer.startswith("__SOURCES__:"):
+                nl = buffer.find("\n")
+                if nl == -1:
+                    break
+                head = buffer[:nl]
+                buffer = buffer[nl + 1 :]
+                _, _, json_part = head.partition(":")
+                try:
+                    parsed = json.loads(json_part)
+                    if isinstance(parsed, list):
+                        sources = [_SourceDoc.model_validate(x) for x in parsed]  # type: ignore[attr-defined]
+                except Exception:
+                    sources = []
+                continue
+            break
+        if buffer:
+            answer_parts.append(buffer)
+            buffer = ""
+
+    return sources, "".join(answer_parts)
+
+
+if prompt := st.chat_input("请输入你的问题，例如：图书馆几点关门？"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    _persist_current_session()
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        stepper_box = st.empty()
+        docs_box = st.empty()
+        answer_box = st.empty()
+
+        active = "rewrite"
+        done: List[str] = []
+        failed: Optional[str] = None
+        stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
+
+        base_url = st.session_state.backend_url.strip()
+        executor = ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(_call_search, base_url, prompt)
+
+        last_switch = time.monotonic()
+        stage_order = ["rewrite", "retrieve", "rerank"]
+        stage_index = 0
+        while not future.done():
+            now = time.monotonic()
+            if now - last_switch >= 2.0:
+                stage_index = (stage_index + 1) % len(stage_order)
+                active = stage_order[stage_index]
+                stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
+                last_switch = now
+            time.sleep(0.08)
+
+        try:
+            search_res = future.result()
+        except Exception as e:
+            failed = active
+            stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
+            answer_box.error(f"检索失败：{e}")
+            st.session_state.messages.append(
+                {"role": "assistant", "content": f"检索失败：{e}", "docs": []}
+            )
+            _persist_current_session()
+            st.stop()
+        finally:
+            executor.shutdown(wait=False, cancel_futures=False)
+
+        docs = search_res.results or []
+        done = ["rewrite", "retrieve"]
+        active = "rerank"
+        stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
+
+        with docs_box.container():
+            if not docs:
+                st.warning("未检索到相关文档，将直接返回空结果。")
+            else:
+                st.markdown(f"**检索结果：{len(docs)} 条**")
+                cols = st.columns(2)
+                for idx, d in enumerate(docs):
+                    with cols[idx % 2]:
+                        st.markdown(_format_doc_card(d), unsafe_allow_html=True)
+                        c1, c2 = st.columns([1, 1])
+                        with c1:
+                            if st.button("查看全文", key=f"open_live_{idx}", use_container_width=True):
+                                _open_doc_modal(d)
+                        with c2:
+                            u = str((d.metadata or {}).get("url") or "").strip()
+                            if u:
+                                if hasattr(st, "link_button"):
+                                    st.link_button("打开链接", u, use_container_width=True)
+                                else:
+                                    st.markdown(f"[打开链接]({u})")
+
+        done = ["rewrite", "retrieve", "rerank"]
+        active = "summary"
+        stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
+
+        summarize_url = base_url.rstrip("/") + "/api/summarize"
+        summarize_payload = {"query": prompt, "docs": [d.model_dump() for d in docs]}  # type: ignore[attr-defined]
+
+        try:
+            sources: List[_SourceDoc] = []
+            sources_parsed = False
+            pending = ""
+            answer_text = ""
+
+            last_render = time.monotonic()
+            for chunk in _iter_stream_with_retry(
+                summarize_url,
+                summarize_payload,
+                timeout_s=20.0,
+                max_retries=2,
+            ):
+                pending += chunk
+                while not sources_parsed and pending.startswith("__SOURCES__:"):
+                    nl = pending.find("\n")
+                    if nl == -1:
+                        break
+                    head = pending[:nl]
+                    pending = pending[nl + 1 :]
+                    _, _, json_part = head.partition(":")
                     try:
-                        pipeline_data = _fetch_pipeline_data(user_query)
-                        pipeline_rendered = True
-                        _render_retrieved_docs(retrieved_docs_placeholder, pipeline_data)
+                        parsed = json.loads(json_part)
+                        if isinstance(parsed, list):
+                            sources = [_SourceDoc.model_validate(x) for x in parsed]  # type: ignore[attr-defined]
                     except Exception:
-                        pass
-                
-                # 渲染引用
-                cited_ids = _extract_citations(final_text)
-                cards_html = _sources_cards_html(final_sources, cited_ids)
-                refs_placeholder.markdown(cards_html, unsafe_allow_html=True)
+                        sources = []
+                    sources_parsed = True
 
-                steps = [
-                    {"id": "retrieve", "label": "Retrieve", "status": "完成"},
-                    {"id": "rerank", "label": "Rerank", "status": "完成"},
-                    {"id": "generate", "label": "Generate", "status": "完成"},
-                ]
-                _render_pipeline_steps(pipeline_steps_placeholder, steps)
-                
-                # 保存助手消息到历史
-                st.session_state.messages.append({
+                if pending and not pending.startswith("__SOURCES__:"):
+                    answer_text += pending
+                    pending = ""
+
+                now = time.monotonic()
+                if now - last_render >= 0.08:
+                    answer_box.markdown(answer_text + "▌")
+                    last_render = now
+
+            answer_box.markdown(answer_text)
+
+            if show_debug and sources:
+                with st.expander("调试：sources", expanded=False):
+                    st.json([s.model_dump() for s in sources])  # type: ignore[attr-defined]
+
+            answer_box.empty()
+            _render_markdown_enhanced(answer_text, key=f"md_live_{uuid4_hex()}")
+
+            done = ["rewrite", "retrieve", "rerank", "summary"]
+            active = "summary"
+            stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
+
+            st.session_state.messages.append(
+                {
                     "role": "assistant",
-                    "content": final_text,
-                    "sources": [vars(s) for s in final_sources] # 转 dict 保存
-                })
-                
-            except Exception as e:
-                answer_placeholder.markdown(f"❌ 请求出错了: {str(e)}")
-
-# --- 4. 底部输入交互区 ---
-# 无论是在 Empty State 还是 Chat Flow，输入框始终在底部
-user_input = st.chat_input("向 UoB 助手提问 (例如：我要去哪里领学生卡？)...")
-
-if user_input:
-    # 触发状态变更
-    st.session_state.chat_started = True
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    st.rerun()
+                    "content": answer_text,
+                    "docs": [d.model_dump() for d in docs],  # type: ignore[attr-defined]
+                    "sources": [s.model_dump() for s in sources],  # type: ignore[attr-defined]
+                }
+            )
+            _persist_current_session()
+        except Exception as e:
+            failed = "summary"
+            stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
+            answer_box.error(f"总结失败：{e}")
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": f"总结失败：{e}",
+                    "docs": [d.model_dump() for d in docs],  # type: ignore[attr-defined]
+                    "sources": [],
+                }
+            )
+            _persist_current_session()
