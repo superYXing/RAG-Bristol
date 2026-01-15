@@ -9,10 +9,24 @@ logger = logging.getLogger("rag")
 
 class RAGGenerator:
     def __init__(self):
+        provider = (getattr(settings, "GENERATE_PROVIDER", "") or "qwen").lower()
+        if provider == "qwen":
+            model = settings.REWRITE_MODEL_NAME
+            api_key = settings.REWRITE_API_KEY
+            base_url = settings.REWRITE_BASE_URL
+        elif provider == "gemini":
+            model = getattr(settings, "GEMINI_MODEL_NAME", settings.GENERATE_MODEL_NAME)
+            api_key = settings.GENERATE_API_KEY or settings.OPENAI_API_KEY or None
+            base_url = settings.GENERATE_BASE_URL
+        else:
+            model = settings.GENERATE_MODEL_NAME
+            api_key = settings.GENERATE_API_KEY or settings.OPENAI_API_KEY or None
+            base_url = settings.GENERATE_BASE_URL
+
         self.llm = ChatOpenAI(
-            model=settings.GENERATE_MODEL_NAME,
-            api_key=settings.GENERATE_API_KEY or settings.OPENAI_API_KEY or None,
-            base_url=settings.GENERATE_BASE_URL,
+            model=model,
+            api_key=api_key,
+            base_url=base_url,
             streaming=True,
             temperature=0.3
         )
@@ -32,7 +46,7 @@ Constraints & Rules
 2. 多语言适配：自动识别用户问题的语言（中文、英文或中英混杂），并始终使用**完全相同的语言**进行回复。
 3. Markdown 格式规范：
     - 使用 Markdown 语法优化排版：使用分级标题（###）划分模块、加粗（**）核心概念、使用列表（- 或 1.）组织信息。
-    - 严禁使用纯文本 URL，所有链接必须转换为 Markdown 超链接格式。
+    - 所有链接必须转换为 Markdown 超链接格式。
 4. 引用与来源标注：
     文中引用：在提及相关信息时，必须在句末紧跟引用编号，格式为 `[编号]`（例如：[1]）。
     末尾列表：在回答结束后的“参考链接”部分，使用 `[编号] [标题](URL)` 的 Markdown 语法列出所有引用来源，确保用户可以点击跳转。
@@ -54,6 +68,21 @@ Constraints & Rules
         if not docs:
             yield "未找到相关通知 (No relevant notifications found)."
             logger.info(json.dumps({"event": "generate_empty", "request_id": request_id, "ms": round((time.perf_counter() - t0) * 1000, 2)}, ensure_ascii=False))
+            return
+
+        scores = [float((d.get("score") or 0.0)) for d in docs]
+        reranks = [float((d.get("rerank_score") or 0.0)) for d in docs]
+        best_score = max(scores) if scores else 0.0
+        best_rerank = max(reranks) if reranks else 0.0
+        if best_score < 0.5 or best_rerank <= 0.0:
+            yield "未找到相关通知 (No relevant notifications found)."
+            logger.info(json.dumps({
+                "event": "generate_low_confidence",
+                "request_id": request_id,
+                "ms": round((time.perf_counter() - t0) * 1000, 2),
+                "best_score": best_score,
+                "best_rerank": best_rerank,
+            }, ensure_ascii=False))
             return
 
         top_docs = []

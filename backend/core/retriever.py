@@ -5,6 +5,9 @@ import json
 import logging
 import os
 import time
+import math
+import re
+from typing import Any, Dict, List
 
 import httpx
 from langchain_openai import ChatOpenAI
@@ -17,8 +20,55 @@ except Exception:
 
 logger = logging.getLogger("rag")
 
+
+class BM25Scorer:
+    def __init__(self, k1: float = 1.5, b: float = 0.75) -> None:
+        self.k1 = float(k1)
+        self.b = float(b)
+
+    def tokenize(self, text: str) -> List[str]:
+        tokens = re.findall(r"\w+", text.lower())
+        return tokens
+
+    def score(self, query_tokens: List[str], documents_tokens: List[List[str]]) -> List[float]:
+        if not documents_tokens:
+            return []
+        N = len(documents_tokens)
+        doc_freqs: Dict[str, int] = {}
+        doc_lens: List[int] = []
+        for doc in documents_tokens:
+            doc_lens.append(len(doc))
+            unique_terms = set(doc)
+            for term in unique_terms:
+                doc_freqs[term] = doc_freqs.get(term, 0) + 1
+        avgdl = sum(doc_lens) / float(N)
+        idf: Dict[str, float] = {}
+        for term, df in doc_freqs.items():
+            idf[term] = math.log((N - df + 0.5) / (df + 0.5) + 1.0)
+        scores: List[float] = []
+        q_terms = list(dict.fromkeys(query_tokens))
+        for idx, doc in enumerate(documents_tokens):
+            score_val = 0.0
+            if not doc:
+                scores.append(0.0)
+                continue
+            dl = doc_lens[idx]
+            freqs: Dict[str, int] = {}
+            for t in doc:
+                freqs[t] = freqs.get(t, 0) + 1
+            for term in q_terms:
+                freq = freqs.get(term, 0)
+                if freq == 0:
+                    continue
+                term_idf = idf.get(term, 0.0)
+                denom = freq + self.k1 * (1.0 - self.b + self.b * dl / avgdl)
+                score_val += term_idf * (freq * (self.k1 + 1.0) / denom)
+            scores.append(score_val)
+        return scores
+
+
 class RAGRetriever:
-    def __init__(self):
+    def __init__(self) -> None:
         self.llm = ChatOpenAI(
             model=settings.REWRITE_MODEL_NAME,
             api_key=settings.REWRITE_API_KEY,
@@ -32,8 +82,18 @@ class RAGRetriever:
                 use_fp16=True,
                 devices="cuda"
             )
+        kw_weight = max(float(getattr(settings, "BM25_KEYWORD_WEIGHT", 0.4)), 0.0)
+        vec_weight = max(float(getattr(settings, "BM25_VECTOR_WEIGHT", 0.6)), 0.0)
+        if kw_weight == 0.0 and vec_weight == 0.0:
+            kw_weight, vec_weight = 0.4, 0.6
+        total = kw_weight + vec_weight
+        self._kw_weight = kw_weight / total
+        self._vec_weight = vec_weight / total
+        self._bm25_enabled = bool(getattr(settings, "BM25_ENABLED", True))
+        self._bm25 = BM25Scorer()
+        self._bm25_token_cache: Dict[str, List[str]] = {}
 
-    async def retrieve(self, query: str, request_id: str = ""):
+    async def retrieve(self, query: str, request_id: str = "") -> List[Dict[str, Any]]:
         t0 = time.perf_counter()
         timing_stats = {"rewrite": 0, "vector_search": 0, "rerank": 0, "total": 0}
         
@@ -42,14 +102,6 @@ class RAGRetriever:
         rewritten_query, rewrite_debug = await self._rewrite_query(query)
         timing_stats["rewrite"] = rewrite_debug["ms"]
         
-        logger.info(json.dumps({
-            "event": "rewrite_done",
-            "request_id": request_id,
-            "ms": rewrite_debug["ms"],
-            "prompt": rewrite_debug["prompt"],
-            "input": rewrite_debug["input"],
-            "output": rewrite_debug["output"],
-        }, ensure_ascii=False))
 
         try:
             t_search = time.perf_counter()
@@ -73,12 +125,6 @@ class RAGRetriever:
 
         if not candidates:
             timing_stats["total"] = round((time.perf_counter() - t0) * 1000, 2)
-            logger.info(json.dumps({
-                "event": "vector_search_empty", 
-                "request_id": request_id, 
-                "ms": search_ms,
-                "latency_breakdown": timing_stats
-            }, ensure_ascii=False))
             return []
 
         top1_similarity = float(candidates[0].get("score") or 0.0)
@@ -93,47 +139,25 @@ class RAGRetriever:
                 "url": meta.get("url"),
                 # "content_preview": content[:settings.LOG_TEXT_MAX_CHARS], # Removed
             })
-        logger.info(json.dumps({
-            "event": "vector_search_done",
-            "request_id": request_id,
-            "ms": search_ms,
-            "rewritten_query": rewritten_query,
-            "hits": len(candidates),
-            "top1_similarity": top1_similarity,
-            "top5": top5_preview,
-        }, ensure_ascii=False))
 
         try:
-            doc_texts = [c['content'] for c in candidates]
+            doc_texts = [c["content"] for c in candidates]
             t_rerank = time.perf_counter()
             scores = await self._rerank(rewritten_query, doc_texts)
             rerank_ms = round((time.perf_counter() - t_rerank) * 1000, 2)
             timing_stats["rerank"] = rerank_ms
-            
             for i, score in enumerate(scores):
-                candidates[i]['rerank_score'] = score
-            
-            candidates.sort(key=lambda x: x.get('rerank_score', 0), reverse=True)
-            logger.info(json.dumps({
-                "event": "rerank_done",
-                "request_id": request_id,
-                "ms": rerank_ms,
-                "top_n": min(10, len(doc_texts)),
-                "top5": [
-                    {
-                        "id": c.get("id"),
-                        "rerank_score": c.get("rerank_score"),
-                        "score": c.get("score"),
-                        "title": (c.get("metadata") or {}).get("title"),
-                        "url": (c.get("metadata") or {}).get("url"),
-                    }
-                    for c in candidates[:5]
-                ],
-            }, ensure_ascii=False))
-            
+                candidates[i]["rerank_score"] = score
+            candidates.sort(key=lambda x: x.get("rerank_score", 0.0), reverse=True)
         except Exception as e:
             logger.info(json.dumps({"event": "rerank_error", "request_id": request_id, "error": str(e)}, ensure_ascii=False))
-        
+
+        if self._bm25_enabled:
+            bm25_scores = self._compute_bm25_scores(rewritten_query, candidates)
+            for i, s in enumerate(bm25_scores):
+                candidates[i]["bm25_score"] = s
+            self._apply_hybrid_scores(candidates)
+
         top_k = candidates[:5]
         
         timing_stats["total"] = round((time.perf_counter() - t0) * 1000, 2)
@@ -146,13 +170,13 @@ class RAGRetriever:
         }, ensure_ascii=False))
         return top_k
 
-    async def _rerank(self, query: str, documents: list) -> list:
+    async def _rerank(self, query: str, documents: List[str]) -> List[float]:
         mode = (getattr(settings, "RERANK_MODE", "") or "api").lower()
         if mode == "api":
             return await self._rerank_api(query, documents)
         return await self._rerank_local(query, documents)
 
-    async def _rerank_api(self, query: str, documents: list) -> list:
+    async def _rerank_api(self, query: str, documents: List[str]) -> List[float]:
         if not documents:
             return []
         base_url = settings.RERANK_BASE_URL.rstrip("/")
@@ -200,7 +224,7 @@ class RAGRetriever:
                     final_scores[idx] = 0.0
         return final_scores
 
-    async def _rerank_local(self, query: str, documents: list) -> list:
+    async def _rerank_local(self, query: str, documents: List[str]) -> List[float]:
         if self.reranker is None:
             return [0.0] * len(documents)
         top_n = min(10, len(documents))
@@ -210,6 +234,49 @@ class RAGRetriever:
         for i, s in enumerate(scores):
             final_scores[i] = float(s)
         return final_scores
+
+    def _compute_bm25_scores(self, query: str, candidates: List[Dict[str, Any]]) -> List[float]:
+        query_tokens = self._bm25.tokenize(query)
+        docs_tokens: List[List[str]] = []
+        for c in candidates:
+            doc_id = str(c.get("id") or "")
+            content = str(c.get("content") or "")
+            if doc_id in self._bm25_token_cache:
+                tokens = self._bm25_token_cache[doc_id]
+            else:
+                tokens = self._bm25.tokenize(content)
+                if doc_id:
+                    self._bm25_token_cache[doc_id] = tokens
+            docs_tokens.append(tokens)
+        return self._bm25.score(query_tokens, docs_tokens)
+
+    def _apply_hybrid_scores(self, candidates: List[Dict[str, Any]]) -> None:
+        if not candidates:
+            return
+        bm25_vals: List[float] = []
+        vec_vals: List[float] = []
+        for c in candidates:
+            bm25_vals.append(float(c.get("bm25_score") or 0.0))
+            vec = c.get("rerank_score")
+            if vec is None:
+                vec = c.get("score") or 0.0
+            vec_vals.append(float(vec))
+        bm25_norm = self._normalize_scores(bm25_vals)
+        vec_norm = self._normalize_scores(vec_vals)
+        for i, c in enumerate(candidates):
+            hybrid = bm25_norm[i] * self._kw_weight + vec_norm[i] * self._vec_weight
+            c["hybrid_score"] = hybrid
+        candidates.sort(key=lambda x: x.get("hybrid_score", x.get("rerank_score", 0.0)), reverse=True)
+
+    def _normalize_scores(self, scores: List[float]) -> List[float]:
+        if not scores:
+            return []
+        min_v = min(scores)
+        max_v = max(scores)
+        if max_v == min_v:
+            return [0.0 for _ in scores]
+        scale = max_v - min_v
+        return [(s - min_v) / scale for s in scores]
 
     async def _rewrite_query(self, query: str):
         prompt = PromptTemplate.from_template("""

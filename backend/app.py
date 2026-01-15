@@ -134,8 +134,9 @@ async def search(req: SearchRequest):
         try:
             cached_docs = json.loads(cached_docs_str)
             if isinstance(cached_docs, list):
-                logger.info(json.dumps({"event": "api_search_cache_hit", "request_id": request_id, "ms": round((time.perf_counter() - t0) * 1000, 2)}, ensure_ascii=False))
-                return {"results": cached_docs}
+                elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
+                logger.info(json.dumps({"event": "api_search_cache_hit", "request_id": request_id, "ms": elapsed_ms}, ensure_ascii=False))
+                return {"results": cached_docs, "latency_ms": elapsed_ms, "from_cache": True}
         except Exception as e:
             logger.error(f"Cache parse failed: {e}")
 
@@ -147,8 +148,9 @@ async def search(req: SearchRequest):
     except Exception as e:
         logger.error(f"Cache update failed: {e}")
 
-    logger.info(json.dumps({"event": "api_search_end", "request_id": request_id, "ms": round((time.perf_counter() - t0) * 1000, 2), "results": len(docs)}, ensure_ascii=False))
-    return {"results": docs}
+    elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
+    logger.info(json.dumps({"event": "api_search_end", "request_id": request_id, "ms": elapsed_ms, "results": len(docs)}, ensure_ascii=False))
+    return {"results": docs, "latency_ms": elapsed_ms, "from_cache": False}
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
