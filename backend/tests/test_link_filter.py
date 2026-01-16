@@ -1,3 +1,17 @@
+"""
+test_link_filter.py - URL and Link Removal Filter Unit Tests
+
+This module tests the LinkFilter class which removes various types
+of links from document content before embedding:
+- HTML anchor tags (<a href="...">text</a>)
+- Markdown links ([text](url))
+- Plain URLs (http://, https://)
+- Mixed content with multiple link types
+
+Run with:
+    python -m pytest test_link_filter.py -v
+"""
+
 import unittest
 import sys
 import os

@@ -1,3 +1,16 @@
+"""
+test_chunk_export.py - Document Chunking Export Utility
+
+This script processes Markdown files and exports the resulting chunks
+to JSON format for inspection and debugging:
+- Recursively scans directories for .md files
+- Applies the document processor chunking logic
+- Exports chunks with metadata to timestamped JSON files
+
+Usage:
+    python test_chunk_export.py --dir ../bristol_markdown --out ./chunks
+"""
+
 import argparse
 import json
 import os

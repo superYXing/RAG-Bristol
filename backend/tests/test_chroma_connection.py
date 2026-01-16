@@ -1,3 +1,17 @@
+"""
+test_chroma_connection.py - ChromaDB Connection and Vector Search Test
+
+This script validates the ChromaDB vector database connection and basic
+vector search functionality:
+- Connection establishment to ChromaDB
+- Collection creation with cosine distance metric
+- Document ingestion and embedding generation
+- Semantic similarity search verification
+
+Run with:
+    python test_chroma_connection.py
+"""
+
 import os
 import sys
 import time

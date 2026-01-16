@@ -52,19 +52,42 @@ def _inject_css():
         """
 <style>
     :root {
-        --uob-red: #B01C2E;
-        --uob-red-2: #D32F2F;
-        --bg: #ffffff;
-        --panel: #F7F7F9;
-        --text: #111827;
-        --muted: #6B7280;
-        --border: #E5E7EB;
-        --shadow: 0 10px 30px rgba(17,24,39,0.08);
+        --bg: #F7F7F5;
+        --panel: #FFFFFF;
+        --panel-2: #F1F1EE;
+        --text: #0B0F19;
+        --muted: #5A6476;
+        --border: #E6E6E3;
+        --accent: #0F766E;
+        --danger: #B42318;
+        --shadow: 0 10px 30px rgba(11,15,25,0.06);
+        --radius: 16px;
+    }
+
+    .stApp {
+        background: var(--bg);
+        color: var(--text);
+    }
+
+    div.block-container {
+        max-width: 1120px;
+        padding-top: 2.0rem;
+        padding-bottom: 2.0rem;
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
     }
 
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #FFF5F5 0%, #FFFFFF 100%);
-        border-right: 1px solid #F1C9CF;
+        background: var(--panel);
+        border-right: 1px solid var(--border);
+    }
+
+    [data-testid="stSidebarContent"] {
+        background: #F3F7FF;
+    }
+
+    [data-testid="stSidebarUserContent"] {
+        background: #F3F7FF;
     }
 
     h1, h2, h3 {
@@ -73,16 +96,16 @@ def _inject_css():
     }
 
     .uob-header {
-        height: 5px;
-        border-radius: 8px;
-        background: linear-gradient(90deg, var(--uob-red) 0%, #FFCDD2 60%, #FFFFFF 100%);
-        margin: 6px 0 18px 0;
+        height: 1px;
+        background: var(--border);
+        border-radius: 999px;
+        margin: 0.5rem 0 1.25rem 0;
     }
 
     .uob-card {
         border: 1px solid var(--border);
-        border-radius: 14px;
-        background: white;
+        border-radius: var(--radius);
+        background: var(--panel);
         box-shadow: var(--shadow);
         padding: 14px 14px;
     }
@@ -106,32 +129,34 @@ def _inject_css():
         font-size: 0.86rem;
         letter-spacing: 0.01em;
         border: 1px solid var(--border);
+        background: rgba(15, 23, 42, 0.03);
+        color: var(--muted);
     }
 
     .uob-pill--high {
-        background: rgba(16, 185, 129, 0.10);
-        color: #047857;
-        border-color: rgba(16, 185, 129, 0.25);
+        background: rgba(15, 118, 110, 0.10);
+        color: var(--accent);
+        border-color: rgba(15, 118, 110, 0.20);
     }
 
     .uob-pill--mid {
-        background: rgba(245, 158, 11, 0.12);
-        color: #92400E;
-        border-color: rgba(245, 158, 11, 0.30);
+        background: rgba(15, 23, 42, 0.06);
+        color: var(--text);
+        border-color: rgba(15, 23, 42, 0.10);
     }
 
     .uob-pill--low {
-        background: rgba(239, 68, 68, 0.10);
-        color: #B91C1C;
-        border-color: rgba(239, 68, 68, 0.25);
+        background: rgba(180, 35, 24, 0.10);
+        color: var(--danger);
+        border-color: rgba(180, 35, 24, 0.18);
     }
 
     .uob-stepper {
         width: 100%;
         padding: 12px 12px;
         border: 1px solid var(--border);
-        border-radius: 14px;
-        background: linear-gradient(180deg, #FFFFFF 0%, #FAFAFB 100%);
+        border-radius: var(--radius);
+        background: var(--panel);
         box-shadow: var(--shadow);
     }
 
@@ -157,8 +182,8 @@ def _inject_css():
         height: 22px;
         border-radius: 999px;
         border: 2px solid var(--border);
-        background: white;
-        transition: all 320ms ease;
+        background: var(--panel);
+        transition: all 260ms ease;
     }
 
     .uob-step::after {
@@ -169,7 +194,7 @@ def _inject_css():
         width: 2px;
         height: 24px;
         background: var(--border);
-        transition: all 320ms ease;
+        transition: all 260ms ease;
     }
 
     .uob-step:last-child::after {
@@ -190,24 +215,23 @@ def _inject_css():
         line-height: 1.05rem;
     }
 
-    .uob-step.pending .uob-step-label { color: #374151; }
-    .uob-step.pending::before { border-color: var(--border); background: white; }
+    .uob-step.pending .uob-step-label { color: var(--text); }
+    .uob-step.pending::before { border-color: var(--border); background: var(--panel); }
 
     .uob-step.active::before {
-        border-color: transparent;
-        background: linear-gradient(135deg, #2563EB 0%, #22C55E 45%, #F59E0B 72%, #EF4444 100%);
-        box-shadow: 0 0 0 4px rgba(176,28,46,0.10);
-        animation: uobPulse 2s ease-in-out infinite;
+        border-color: rgba(15, 118, 110, 0.35);
+        background: rgba(15, 118, 110, 0.10);
+        box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.08);
     }
 
     .uob-step.done::before {
-        border-color: transparent;
-        background: linear-gradient(135deg, #10B981 0%, #22C55E 100%);
+        border-color: rgba(15, 118, 110, 0.35);
+        background: var(--accent);
     }
 
     .uob-step.fail::before {
-        border-color: transparent;
-        background: linear-gradient(135deg, #EF4444 0%, #F97316 100%);
+        border-color: rgba(180, 35, 24, 0.35);
+        background: var(--danger);
     }
 
     .uob-step-icon {
@@ -218,20 +242,98 @@ def _inject_css():
         height: 22px;
         display: grid;
         place-items: center;
-        color: white;
-        font-size: 0.85rem;
-        font-weight: 800;
+        color: var(--muted);
         pointer-events: none;
     }
 
-    @keyframes uobPulse {
-        0%, 100% { transform: scale(1); filter: saturate(1); }
-        50% { transform: scale(1.03); filter: saturate(1.15); }
+    .uob-step.active .uob-step-icon { color: var(--accent); }
+    .uob-step.done .uob-step-icon,
+    .uob-step.fail .uob-step-icon { color: #ffffff; }
+
+    div.stButton > button,
+    div.stDownloadButton > button,
+    div[data-testid="stBaseButton-secondary"] > button,
+    div[data-testid="stBaseButton-primary"] > button {
+        border-radius: 12px !important;
+        border: 1px solid var(--border) !important;
+        background: var(--panel) !important;
+        color: var(--text) !important;
+        padding: 0.56rem 0.80rem !important;
+        font-weight: 650 !important;
+        letter-spacing: -0.01em;
+        box-shadow: none !important;
+        transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    }
+
+    div.stButton > button:hover,
+    div.stDownloadButton > button:hover,
+    div[data-testid="stBaseButton-secondary"] > button:hover,
+    div[data-testid="stBaseButton-primary"] > button:hover {
+        border-color: rgba(15, 118, 110, 0.35) !important;
+        box-shadow: 0 10px 24px rgba(11,15,25,0.06) !important;
+        transform: translateY(-1px);
+    }
+
+    [data-baseweb="input"] input,
+    [data-baseweb="textarea"] textarea {
+        border-radius: 12px !important;
+        border: 1px solid var(--border) !important;
+        background: var(--panel) !important;
+        color: var(--text) !important;
+        box-shadow: none !important;
+    }
+
+    [data-baseweb="input"] input:focus,
+    [data-baseweb="textarea"] textarea:focus {
+        border-color: rgba(15,118,110,0.35) !important;
+        box-shadow: 0 0 0 4px rgba(15,118,110,0.08) !important;
+        outline: none !important;
+    }
+
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        letter-spacing: -0.02em;
+    }
+
+    a {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+    a:hover {
+        text-decoration: underline;
+    }
+
+    @media (max-width: 980px) {
+        .uob-steps { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 640px) {
+        div.block-container {
+            padding-top: 1.2rem;
+            padding-bottom: 1.5rem;
+            padding-left: 0.85rem;
+            padding-right: 0.85rem;
+        }
+        .uob-steps { grid-template-columns: 1fr; }
     }
 </style>
 """,
         unsafe_allow_html=True,
     )
+
+
+def _svg_icon(name: str) -> str:
+    icons = {
+        "check": '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+        "x": '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>',
+        "spark": '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2z"/></svg>',
+        "search": '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.2-3.2"/></svg>',
+        "filter": '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>',
+        "doc": '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/></svg>',
+    }
+    return icons.get(name, "")
 
 
 def _stepper_html(active_stage: str, done: List[str], failed_stage: Optional[str]) -> str:
@@ -241,20 +343,26 @@ def _stepper_html(active_stage: str, done: List[str], failed_stage: Optional[str
         "rerank": ("rerank", "重排序"),
         "summary": ("summary", "生成总结"),
     }
+    stage_icons = {
+        "rewrite": _svg_icon("spark"),
+        "retrieve": _svg_icon("search"),
+        "rerank": _svg_icon("filter"),
+        "summary": _svg_icon("doc"),
+    }
     chunks = ['<div class="uob-stepper"><div class="uob-steps">']
     for stage_id, _ in STAGES:
         if failed_stage == stage_id:
             state = "fail"
-            icon = "✗"
+            icon = _svg_icon("x")
         elif stage_id in done:
             state = "done"
-            icon = "✓"
+            icon = _svg_icon("check")
         elif stage_id == active_stage:
             state = "active"
-            icon = ""
+            icon = stage_icons.get(stage_id, "")
         else:
             state = "pending"
-            icon = ""
+            icon = stage_icons.get(stage_id, "")
         title, sub = labels[stage_id]
         chunks.append(
             f"""
@@ -280,6 +388,8 @@ class _SearchHit(BaseModel):  # type: ignore[misc]
 
 class _SearchResponse(BaseModel):  # type: ignore[misc]
     results: List[_SearchHit]
+    latency_ms: Optional[float] = None
+    from_cache: Optional[bool] = None
 
 
 class _SourceDoc(BaseModel):  # type: ignore[misc]
@@ -363,10 +473,10 @@ def _render_markdown_enhanced(md: str, key: str):
     <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.11.1/lib/highlight.min.js"></script>
     <style>
       :root {{
-        --uob-red: #B01C2E;
-        --text: #111827;
-        --muted: #6B7280;
-        --border: #E5E7EB;
+        --accent: #0F766E;
+        --text: #0B0F19;
+        --muted: #5A6476;
+        --border: #E6E6E3;
       }}
       body {{
         margin: 0;
@@ -402,19 +512,19 @@ def _render_markdown_enhanced(md: str, key: str):
         transition: all 220ms ease;
       }}
       .btn:hover {{
-        border-color: rgba(176,28,46,0.5);
-        box-shadow: 0 6px 18px rgba(17,24,39,0.08);
+        border-color: rgba(15,118,110,0.35);
+        box-shadow: 0 10px 24px rgba(11,15,25,0.06);
         transform: translateY(-1px);
       }}
       .btn.primary {{
-        border-color: rgba(176,28,46,0.5);
-        color: var(--uob-red);
+        border-color: rgba(15,118,110,0.35);
+        color: var(--accent);
       }}
       .content {{
         overflow-wrap: anywhere;
       }}
       .content a {{
-        color: var(--uob-red);
+        color: var(--accent);
         text-decoration: none;
       }}
       .content a:hover {{
@@ -443,7 +553,7 @@ def _render_markdown_enhanced(md: str, key: str):
         transition: all 220ms ease;
       }}
       .codebtn:hover {{
-        border-color: rgba(176,28,46,0.5);
+        border-color: rgba(15,118,110,0.35);
         transform: translateY(-1px);
       }}
       @media (max-width: 640px) {{
@@ -522,6 +632,11 @@ def _format_doc_card(doc: _SearchHit) -> str:
         score_cls = "uob-pill uob-pill--mid"
     else:
         score_cls = "uob-pill uob-pill--low"
+
+    rerank = doc.rerank_score
+    rerank_val = float(rerank) if rerank is not None else None
+    rerank_str = f"{rerank_val:.4f}" if rerank_val is not None else "-"
+    rerank_cls = "uob-pill"
     preview = (doc.content or "").strip().replace("\n", " ")
     preview = re.sub(r"\s+", " ", preview)[:260]
     title_html = (
@@ -529,13 +644,55 @@ def _format_doc_card(doc: _SearchHit) -> str:
     )
     return f"""
 <div class="uob-card">
-  <div style="font-weight:750;color:#111827;font-size:1.00rem;line-height:1.2rem;">{title_html}</div>
+  <div style="font-weight:750;color:var(--text);font-size:1.00rem;line-height:1.2rem;">{title_html}</div>
   <div class="uob-kv">
     <span class="{score_cls}">score: {score_str}</span>
+    <span class="{rerank_cls}">rerank: {rerank_str}</span>
   </div>
-  <div style="margin-top:8px;color:#374151;font-size:0.92rem;line-height:1.25rem;">{preview}...</div>
+  <div style="margin-top:8px;color:var(--muted);font-size:0.92rem;line-height:1.25rem;">{preview}...</div>
 </div>
 """.strip()
+
+SAMPLE_QUERIES: List[str] = [
+    "图书馆几点关门？",
+    "考试周的自习教室开放时间？",
+    "如何申请延期完成课程作业？",
+    "校园紧急联系人电话是多少？",
+    "哪里可以查到最新的考试安排？",
+    "如何预约与学业导师的会面？",
+    "学生健康中心的开放时间？",
+    "交换生项目的申请截止日期？",
+    "助学金和奖学金如何申请？",
+    "宿舍安静时间有何规定？",
+]
+
+
+def _render_rotating_queries():
+    items = json.dumps(SAMPLE_QUERIES, ensure_ascii=False)
+    components.html(
+        f"""
+<div style="margin: 0.25rem 0 1.0rem 0; font-size: 0.86rem; color: var(--muted);">
+  <span>示例问题：</span>
+  <span id="sample-query" style="font-weight: 500;"></span>
+</div>
+<script>
+  (function() {{
+    var items = {items};
+    if (!Array.isArray(items) || items.length === 0) return;
+    var el = document.getElementById("sample-query");
+    if (!el) return;
+    var idx = Math.floor(Math.random() * items.length);
+    function update() {{
+      el.textContent = items[idx];
+      idx = (idx + 1) % items.length;
+    }}
+    update();
+    setInterval(update, 4000);
+  }})();
+</script>
+""",
+        height=40,
+    )
 
 
 _inject_css()
@@ -714,6 +871,7 @@ with header_left:
     )
 with header_right:
     st.title("Campus AI Assistant")
+    _render_rotating_queries()
 
 with st.sidebar:
     st.subheader("设置")
@@ -864,6 +1022,11 @@ if prompt := st.chat_input("请输入你的问题，例如：图书馆几点关�
             if not docs:
                 st.warning("未检索到相关文档，将直接返回空结果。")
             else:
+                if getattr(search_res, "latency_ms", None) is not None:
+                    caption = f"检索耗时：{search_res.latency_ms:.2f} ms"
+                    if getattr(search_res, "from_cache", None):
+                        caption += "（缓存命中）"
+                    st.caption(caption)
                 st.markdown(f"**检索结果：{len(docs)} 条**")
                 cols = st.columns(2)
                 for idx, d in enumerate(docs):

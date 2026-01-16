@@ -1,3 +1,16 @@
+"""
+test_llm_connection.py - LLM API Connection Test
+
+This script tests the connection to the LLM service (local Ollama
+or cloud API) configured in the .env file:
+- Validates OPENAI_API_KEY and LLM_BASE_URL environment variables
+- Sends a simple "hello" request to verify connectivity
+- Reports API response status and content
+
+Run with:
+    python test_llm_connection.py
+"""
+
 import os
 import sys
 from dotenv import load_dotenv

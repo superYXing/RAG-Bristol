@@ -1,3 +1,17 @@
+"""
+test_conversation_full.py - End-to-End RAG Conversation Integration Test
+
+This script performs a complete end-to-end test of the RAG pipeline,
+simulating a real user conversation:
+1. User submits a query
+2. Retriever fetches relevant documents from vector store
+3. Reranker refines the results
+4. Generator produces a streaming response with citations
+
+Run with:
+    python test_conversation_full.py
+"""
+
 import os
 import sys
 import asyncio

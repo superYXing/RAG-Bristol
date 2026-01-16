@@ -1,3 +1,15 @@
+"""
+test_retriever.py - RAG Retriever Integration Test
+
+This script tests the hybrid retrieval system which combines:
+- Vector similarity search (ChromaDB + BGE embeddings)
+- BM25 keyword matching
+- Reranking with BGE-reranker-v2-m3
+
+Run with:
+    python test_retriever.py
+"""
+
 import asyncio
 import sys
 import os

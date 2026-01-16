@@ -1,3 +1,17 @@
+"""
+test_summarize_api.py - Summarization API Endpoint Test
+
+This script tests the /api/summarize endpoint which generates
+LLM-powered summaries from retrieved documents:
+- Starts the FastAPI server automatically
+- Sends mock documents to the summarize endpoint
+- Validates streaming response format and content
+- Tests error handling for malformed requests
+
+Run with:
+    python test_summarize_api.py
+"""
+
 import sys
 import os
 import time

@@ -1,3 +1,17 @@
+"""
+benchmark_rerank_api_latency.py - Reranking API Latency Benchmark
+
+This script specifically measures the latency of the external reranking API
+(BAAI/bge-reranker-v2-m3) to help identify performance bottlenecks.
+
+Usage:
+    python benchmark_rerank_api_latency.py --queries 10
+
+Outputs:
+    - JSONL log file with rerank API timing for each request
+    - Summary statistics comparing local vs API rerank performance
+"""
+
 import argparse
 import asyncio
 import json

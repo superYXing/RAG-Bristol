@@ -1,3 +1,15 @@
+"""
+test_generator_format.py - RAG Generator Output Format Test
+
+This script validates the output format of the RAG generator:
+- Verifies that the first chunk contains __SOURCES__ JSON prefix
+- Tests streaming response format and structure
+- Validates citation metadata parsing
+
+Run with:
+    python test_generator_format.py
+"""
+
 import sys
 import os
 import asyncio

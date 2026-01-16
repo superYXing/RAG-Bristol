@@ -1,3 +1,16 @@
+"""
+test_ingest_real_file.py - Real Markdown File Ingestion Test
+
+This script tests the document ingestion pipeline with an actual
+Markdown file from the Bristol campus data:
+- Loads a real .md file from bristol_markdown/
+- Processes it through the DocumentProcessor
+- Outputs chunking results to output.txt for inspection
+
+Run with:
+    python test_ingest_real_file.py
+"""
+
 import sys
 import os
 

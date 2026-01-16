@@ -1,3 +1,22 @@
+"""
+benchmark_latency.py - RAG Pipeline End-to-End Latency Benchmark
+
+This script measures the latency of each stage in the RAG pipeline:
+- Query rewriting (rewrite)
+- Vector search (vector_search)
+- Reranking (rerank)
+- Time to first token (ttft)
+- Full generation (generate)
+- Total end-to-end latency (total)
+
+Usage:
+    python benchmark_latency.py --queries 10 --output log/
+
+Outputs:
+    - JSONL log file with detailed timing for each request
+    - Summary statistics table (mean, P50, P95) printed to console
+"""
+
 import asyncio
 import argparse
 import time

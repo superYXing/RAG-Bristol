@@ -9,6 +9,7 @@ import uuid
 import os
 import sys
 import asyncio
+import math
 from typing import List, Dict, Any
 
 # Add current directory to path so imports work
@@ -22,6 +23,23 @@ from core.vector_store import vector_store
 
 logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
 logger = logging.getLogger("rag")
+
+
+def sanitize_floats(obj: Any) -> Any:
+    """
+    Recursively sanitize float values in a data structure to ensure JSON compatibility.
+    Replaces inf, -inf, and nan with 0.0.
+    """
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return 0.0
+        return obj
+    elif isinstance(obj, dict):
+        return {k: sanitize_floats(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_floats(item) for item in obj]
+    return obj
+
 
 app = FastAPI(title=settings.PROJECT_NAME)
 
@@ -136,11 +154,15 @@ async def search(req: SearchRequest):
             if isinstance(cached_docs, list):
                 elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
                 logger.info(json.dumps({"event": "api_search_cache_hit", "request_id": request_id, "ms": elapsed_ms}, ensure_ascii=False))
-                return {"results": cached_docs, "latency_ms": elapsed_ms, "from_cache": True}
+                # Sanitize floats to avoid JSON serialization errors
+                return {"results": sanitize_floats(cached_docs), "latency_ms": elapsed_ms, "from_cache": True}
         except Exception as e:
             logger.error(f"Cache parse failed: {e}")
 
     docs = await rag_retriever.retrieve(req.query, request_id=request_id)
+    
+    # Sanitize floats before caching and returning
+    docs = sanitize_floats(docs)
     
     # Update Cache
     try:

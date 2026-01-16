@@ -1,3 +1,16 @@
+"""
+test_redis_connection.py - Redis Cache Connection Test
+
+This script tests the connection to the Redis server used for
+semantic caching and BM25 retrieval:
+- Validates REDIS_URL environment variable
+- Sends PING command to verify connectivity
+- Provides troubleshooting tips for common connection issues (WSL, etc.)
+
+Run with:
+    python test_redis_connection.py
+"""
+
 import os
 import sys
 import redis

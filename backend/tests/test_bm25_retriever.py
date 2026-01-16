@@ -1,3 +1,16 @@
+"""
+test_bm25_retriever.py - BM25 Keyword Retrieval Unit Tests
+
+This module tests the BM25 (Best Matching 25) keyword-based retrieval
+functionality integrated with the hybrid retrieval system:
+- BM25 score computation for document ranking
+- Hybrid weighting between keyword and vector scores
+- Token caching for performance optimization
+
+Run with:
+    python -m pytest test_bm25_retriever.py -v
+"""
+
 import unittest
 import os
 import sys

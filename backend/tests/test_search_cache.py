@@ -1,3 +1,16 @@
+"""
+test_search_cache.py - Semantic Cache Hit/Miss Test
+
+This script tests the semantic caching mechanism for search queries:
+- Starts the FastAPI server automatically
+- Sends identical and similar queries to test cache behavior
+- Measures latency difference between cache hits and misses
+- Validates cache invalidation and expiration
+
+Run with:
+    python test_search_cache.py
+"""
+
 import sys
 import os
 import time
