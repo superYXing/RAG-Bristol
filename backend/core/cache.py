@@ -30,7 +30,7 @@ class SemanticCache:
         else:
             self.collection = None
 
-    def lookup(self, query: str, scope: str = "chat", threshold: float = 0.95):
+    def lookup(self, query: str, scope: str = "chat", threshold: float = 0.99):
         """
         查找缓存。
         逻辑：
@@ -129,5 +129,28 @@ class SemanticCache:
 
         except Exception as e:
             print(f"Cache update failed: {e}")
+
+    def clear_all(self):
+        deleted_redis = 0
+        if self.redis_available:
+            try:
+                cursor = 0
+                pattern = "cache:*"
+                while True:
+                    cursor, keys = self.redis_client.scan(cursor=cursor, match=pattern, count=500)
+                    if keys:
+                        deleted_redis += self.redis_client.delete(*keys)
+                    if cursor == 0:
+                        break
+                print(f"SemanticCache: deleted {deleted_redis} Redis keys with prefix 'cache:'.")
+            except Exception as e:
+                print(f"SemanticCache: failed to clear Redis keys ({e}).")
+        if self.collection and self.vector_store.client:
+            try:
+                self.vector_store.client.delete_collection(self.cache_collection_name)
+                self.collection = None
+                print(f"SemanticCache: deleted Chroma collection '{self.cache_collection_name}'.")
+            except Exception as e:
+                print(f"SemanticCache: failed to delete Chroma collection ({e}).")
 
 semantic_cache = SemanticCache()

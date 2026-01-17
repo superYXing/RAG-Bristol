@@ -6,7 +6,7 @@ from datetime import datetime
 from core.link_filter import LinkFilter # 假设你之前添加了这个引用
 
 class DocumentProcessor:
-    def __init__(self, chunk_size=1000, chunk_overlap=200, min_chunk_size=300):
+    def __init__(self, chunk_size=3000, chunk_overlap=550, min_chunk_size=1500):
         """
         :param chunk_size: 目标切片最大长度
         :param chunk_overlap: 切片重叠长度

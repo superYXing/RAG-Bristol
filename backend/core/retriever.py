@@ -8,6 +8,7 @@ import time
 import math
 import re
 from typing import Any, Dict, List
+from urllib.parse import urlparse
 
 import httpx
 from langchain_openai import ChatOpenAI
@@ -76,14 +77,31 @@ class RAGRetriever:
             temperature=0
         )
         self.reranker = None
+        self._rerank_lock = None
         if FlagReranker is not None:
             self.reranker = FlagReranker(
                 settings.RERANKER_MODEL_NAME,
-                use_fp16=True,
+                use_fp16=False,
                 devices="cuda"
             )
+            self._rerank_lock = asyncio.Lock()
         kw_weight = max(float(getattr(settings, "BM25_KEYWORD_WEIGHT", 0.4)), 0.0)
         vec_weight = max(float(getattr(settings, "BM25_VECTOR_WEIGHT", 0.6)), 0.0)
+        
+        # New weighted fusion weights
+        self._weight_vec = max(float(getattr(settings, "WEIGHT_VECTOR", 0.3)), 0.0)
+        self._weight_bm25 = max(float(getattr(settings, "WEIGHT_BM25", 0.3)), 0.0)
+        self._weight_url = max(float(getattr(settings, "WEIGHT_URL", 0.4)), 0.0)
+        
+        # Normalize fusion weights
+        total_fusion = self._weight_vec + self._weight_bm25 + self._weight_url
+        if total_fusion > 0:
+            self._weight_vec /= total_fusion
+            self._weight_bm25 /= total_fusion
+            self._weight_url /= total_fusion
+        else:
+            self._weight_vec, self._weight_bm25, self._weight_url = 0.3, 0.3, 0.4
+            
         if kw_weight == 0.0 and vec_weight == 0.0:
             kw_weight, vec_weight = 0.4, 0.6
         total = kw_weight + vec_weight
@@ -93,15 +111,24 @@ class RAGRetriever:
         self._bm25 = BM25Scorer()
         self._bm25_token_cache: Dict[str, List[str]] = {}
 
+    def _compute_url_similarity(self, query_tokens: set, url: str) -> float:
+        # Deprecated: URL matching is now handled via Rerank content
+        return 0.0
+
     async def retrieve(self, query: str, request_id: str = "") -> List[Dict[str, Any]]:
         t0 = time.perf_counter()
         timing_stats = {"rewrite": 0, "vector_search": 0, "rerank": 0, "total": 0}
         
-        logger.info(json.dumps({"event": "retrieve_start", "request_id": request_id, "query": query}, ensure_ascii=False))
 
         rewritten_query, rewrite_debug = await self._rewrite_query(query)
-        timing_stats["rewrite"] = rewrite_debug["ms"]
-        
+        timing_stats["rewrite"] = rewrite_debug.get("ms", 0)
+        logger.info(json.dumps({
+            "event": "rewrite_end",
+            "request_id": request_id,
+            "query": query,
+            "rewritten_query": rewritten_query[: settings.LOG_TEXT_MAX_CHARS],
+            "ms": timing_stats["rewrite"],
+        }, ensure_ascii=False))
 
         try:
             t_search = time.perf_counter()
@@ -113,13 +140,25 @@ class RAGRetriever:
             return []
         
         candidates = []
+        query_tokens = set(self._bm25.tokenize(rewritten_query))
+
         if results and len(results) > 0:
             for hit in results: 
+                metadata = hit.get("metadata") or {}
+                # url = str(metadata.get("url") or "")
+                
+                # 1. URL 相似度已废弃
+                # url_sim = self._compute_url_similarity(query_tokens, url)
+                
+                # 2. 准备候选项
+                raw_score = float(hit.get("score") or 0.0)
+                
                 candidates.append({
                     "content": hit.get("content"),
-                    "metadata": hit.get("metadata"),
+                    "metadata": metadata,
                     "date": hit.get("date"),
-                    "score": hit.get("score"),
+                    "score": raw_score, # Keep raw vector score
+                    # "url_score": url_sim,
                     "id": hit.get("id")
                 })
 
@@ -127,23 +166,25 @@ class RAGRetriever:
             timing_stats["total"] = round((time.perf_counter() - t0) * 1000, 2)
             return []
 
-        top1_similarity = float(candidates[0].get("score") or 0.0)
-        top5_preview = []
-        for c in candidates[:5]:
-            meta = c.get("metadata") or {}
-            # content = (c.get("content") or "") # Removed to reduce log noise
-            top5_preview.append({
-                "id": c.get("id"),
-                "score": c.get("score"),
-                "title": meta.get("title"),
-                "url": meta.get("url"),
-                # "content_preview": content[:settings.LOG_TEXT_MAX_CHARS], # Removed
-            })
-
         try:
-            doc_texts = [c["content"] for c in candidates]
+            # 构造 Rerank 输入：Description + URL Path + Content
+            rerank_inputs = []
+            for c in candidates:
+                meta = c.get("metadata") or {}
+                url = str(meta.get("url") or "")
+                desc = str(meta.get("description") or "")
+                content = str(c.get("content") or "")
+                
+                # 提取 URL Path (移除域名)
+                url_path = url.replace("https://www.bristol.ac.uk", "")
+                
+                # 拼接文本：URL信息 + 描述 + 正文
+                # 使用明确的分隔符或自然语言连接有助于模型理解，这里简单拼接
+                combined_text = f"{url_path}\n{desc}\n"
+                rerank_inputs.append(combined_text)
+
             t_rerank = time.perf_counter()
-            scores = await self._rerank(rewritten_query, doc_texts)
+            scores = await self._rerank(rewritten_query, rerank_inputs)
             rerank_ms = round((time.perf_counter() - t_rerank) * 1000, 2)
             timing_stats["rerank"] = rerank_ms
             for i, score in enumerate(scores):
@@ -152,21 +193,33 @@ class RAGRetriever:
         except Exception as e:
             logger.info(json.dumps({"event": "rerank_error", "request_id": request_id, "error": str(e)}, ensure_ascii=False))
 
-        if self._bm25_enabled:
-            bm25_scores = self._compute_bm25_scores(rewritten_query, candidates)
-            for i, s in enumerate(bm25_scores):
-                candidates[i]["bm25_score"] = s
-            self._apply_hybrid_scores(candidates)
-
-        top_k = candidates[:5]
+        # BM25 Disabled for hybrid fusion in this new logic (User requested Vector 0.3 + Rerank 0.7)
+        # if self._bm25_enabled:
+        #     bm25_scores = self._compute_bm25_scores(rewritten_query, candidates)
+        #     for i, s in enumerate(bm25_scores):
+        #         candidates[i]["bm25_score"] = s
         
+        self._apply_hybrid_scores(candidates)
+
+        top_k = candidates[:3]
+        
+        score_breakdown = []
+        for doc in top_k:
+            details = doc.get("score_details") or {}
+            score_breakdown.append({
+                "id": doc.get("id"),
+                "hybrid": round(doc.get("hybrid_score") or 0.0, 4),
+                "components": details
+            })
+
         timing_stats["total"] = round((time.perf_counter() - t0) * 1000, 2)
         logger.info(json.dumps({
             "event": "retrieve_end", 
             "request_id": request_id, 
             "ms": timing_stats["total"], 
             "docs": len(top_k),
-            "latency_breakdown": timing_stats
+            "latency_breakdown": timing_stats,
+            "score_breakdown": score_breakdown
         }, ensure_ascii=False))
         return top_k
 
@@ -229,7 +282,11 @@ class RAGRetriever:
             return [0.0] * len(documents)
         top_n = min(10, len(documents))
         pairs = [[query, doc] for doc in documents[:top_n]]
-        scores = await asyncio.to_thread(self.reranker.compute_score, pairs)
+        if self._rerank_lock is not None:
+            async with self._rerank_lock:
+                scores = await asyncio.to_thread(self.reranker.compute_score, pairs)
+        else:
+            scores = await asyncio.to_thread(self.reranker.compute_score, pairs)
         final_scores = [0.0] * len(documents)
         for i, s in enumerate(scores):
             final_scores[i] = float(s)
@@ -253,20 +310,47 @@ class RAGRetriever:
     def _apply_hybrid_scores(self, candidates: List[Dict[str, Any]]) -> None:
         if not candidates:
             return
-        bm25_vals: List[float] = []
+        
         vec_vals: List[float] = []
+        rerank_vals: List[float] = []
+        
         for c in candidates:
-            bm25_vals.append(float(c.get("bm25_score") or 0.0))
-            vec = c.get("rerank_score")
-            if vec is None:
-                vec = c.get("score") or 0.0
+            # Vector Score
+            vec = c.get("score") or 0.0
             vec_vals.append(float(vec))
-        bm25_norm = self._normalize_scores(bm25_vals)
-        vec_norm = self._normalize_scores(vec_vals)
+            
+            # Rerank Score
+            # Ensure it is normalized (0-1)
+            # If Rerank Score is None (e.g. rerank failed), use Vector score or 0.
+            rs = c.get("rerank_score")
+            if rs is None:
+                 # Fallback if rerank failed: use vector score
+                 rs = vec
+            rerank_vals.append(float(rs))
+
+        # 2. Weighted Sum
+        # Weights: Vector 0.3, Rerank 0.7 (User Request)
         for i, c in enumerate(candidates):
-            hybrid = bm25_norm[i] * self._kw_weight + vec_norm[i] * self._vec_weight
-            c["hybrid_score"] = hybrid
-        candidates.sort(key=lambda x: x.get("hybrid_score", x.get("rerank_score", 0.0)), reverse=True)
+            v_score = vec_vals[i]
+            r_score = rerank_vals[i]
+            
+            # Hybrid formula
+            final_score = (
+                v_score * 0.3 + 
+                r_score * 0.7
+            )
+            c["hybrid_score"] = final_score
+            c["score_details"] = {
+                "vector": v_score,
+                "rerank": r_score,
+                "weighted": {
+                    "vector": round(v_score * 0.3, 4),
+                    "rerank": round(r_score * 0.7, 4)
+                }
+            }
+            
+        # 3. Sort by hybrid score
+        candidates.sort(key=lambda x: x["hybrid_score"], reverse=True)
 
     def _normalize_scores(self, scores: List[float]) -> List[float]:
         if not scores:
@@ -280,18 +364,14 @@ class RAGRetriever:
 
     async def _rewrite_query(self, query: str):
         prompt = PromptTemplate.from_template("""
-        你是一个助手，负责将用户的查询转换为用于检索英文校园通知的关键词,站在校园事务查询的立场上进行适当的关键词扩写。
-        
-        用户查询: {query}
-        
-        请执行以下操作：
-        1. 理解用户的意图。
-        2. 将查询翻译成英文（如果不是英文）,回答只包含英文。
-        3. 提取核心关键词
-        4. 输出仅包含关键词的字符串，用空格分隔。
-        
-        示例： 用户输入：“如何办理退学”
-        输出：“withdrawal application, withdrawal procedure, school leaving process, campus administration student enrollment office”
+        Given a user query, rewrite it to provide better results when querying a University of Bristol docs.
+		Remove any irrelevant information, and ensure the query is concise and specific, always response in English,only ouput keywords.
+
+		Original query:
+		{query}
+
+		Rewritten query:
+		only output keywords.
         """)
         try:
             chain = prompt | self.llm | StrOutputParser()

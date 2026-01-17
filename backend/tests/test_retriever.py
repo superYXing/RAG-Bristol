@@ -21,7 +21,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from core.retriever import rag_retriever
 
 async def main():
-    query = "exam schedule"
+    query = "msc cyber security introduction"
     print(f"Running test retrieval for query: '{query}'")
     
     results = await rag_retriever.retrieve(query)

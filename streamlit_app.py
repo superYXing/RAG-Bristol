@@ -930,11 +930,31 @@ _render_doc_modal()
 
 def _call_search(base_url: str, query: str) -> _SearchResponse:
     url = base_url.rstrip("/") + "/api/search"
-    raw = _post_json_with_retry(url, {"query": query}, timeout_s=5.0, max_retries=3)
+    # Timeout increased to 30s to avoid retry on slow retrieval (e.g. 6s+)
+    raw = _post_json_with_retry(url, {"query": query}, timeout_s=10.0, max_retries=3)
     try:
         return _SearchResponse.model_validate(raw)  # type: ignore[attr-defined]
     except Exception as e:
         raise RuntimeError(f"API 响应校验失败：{e}")
+
+
+def _call_chat(base_url: str, query: str) -> Dict[str, Any]:
+    if "chat_cache" not in st.session_state:
+        st.session_state.chat_cache = {}
+    cache: Dict[str, Any] = st.session_state.chat_cache  # type: ignore[assignment]
+    if query in cache:
+        return cache[query]
+    url = base_url.rstrip("/") + "/api/chat"
+    # Timeout increased to 10s
+    raw = _post_json_with_retry(url, {"query": query}, timeout_s=10.0, max_retries=2)
+    if not isinstance(raw, dict):
+        raise RuntimeError("chat 接口返回非 JSON 对象")
+    decision = str(raw.get("decision") or "").lower()
+    if decision not in ("search", "answer"):
+        raise RuntimeError(f"chat 接口返回未知 decision: {raw.get('decision')}")
+    cache[query] = raw
+    st.session_state.chat_cache = cache
+    return raw
 
 
 def _extract_sources_and_text(stream_chunks: Iterable[str]) -> Tuple[List[_SourceDoc], str]:
@@ -984,143 +1004,167 @@ if prompt := st.chat_input("请输入你的问题，例如：图书馆几点关�
         stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
 
         base_url = st.session_state.backend_url.strip()
-        executor = ThreadPoolExecutor(max_workers=1)
-        future = executor.submit(_call_search, base_url, prompt)
-
-        last_switch = time.monotonic()
-        stage_order = ["rewrite", "retrieve", "rerank"]
-        stage_index = 0
-        while not future.done():
-            now = time.monotonic()
-            if now - last_switch >= 2.0:
-                stage_index = (stage_index + 1) % len(stage_order)
-                active = stage_order[stage_index]
-                stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
-                last_switch = now
-            time.sleep(0.08)
 
         try:
-            search_res = future.result()
+            with st.spinner("正在分析你的问题..."):
+                chat_res = _call_chat(base_url, prompt)
         except Exception as e:
-            failed = active
-            stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
-            answer_box.error(f"检索失败：{e}")
+            answer_box.error(f"路由失败，直接进入检索流程：{e}")
+            chat_res = {"decision": "search"}
+
+        decision = str(chat_res.get("decision") or "").lower()
+
+        if decision == "answer":
+            answer_text = str(chat_res.get("answer") or "")
+            if not answer_text:
+                answer_text = "抱歉，我暂时无法理解你的问题。"
+            stepper_box.markdown(_stepper_html("summary", [], None), unsafe_allow_html=True)
+            _render_markdown_enhanced(answer_text, key=f"md_chat_{uuid4_hex()}")
             st.session_state.messages.append(
-                {"role": "assistant", "content": f"检索失败：{e}", "docs": []}
+                {"role": "assistant", "content": answer_text, "docs": []}
             )
             _persist_current_session()
-            st.stop()
-        finally:
-            executor.shutdown(wait=False, cancel_futures=False)
+        else:
+            info_text = "这是与布里斯托大学相关的问题，正在为你检索官方通知..."
+            answer_box.info(info_text)
 
-        docs = search_res.results or []
-        done = ["rewrite", "retrieve"]
-        active = "rerank"
-        stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
+            executor = ThreadPoolExecutor(max_workers=1)
+            future = executor.submit(_call_search, base_url, prompt)
 
-        with docs_box.container():
-            if not docs:
-                st.warning("未检索到相关文档，将直接返回空结果。")
-            else:
-                if getattr(search_res, "latency_ms", None) is not None:
-                    caption = f"检索耗时：{search_res.latency_ms:.2f} ms"
-                    if getattr(search_res, "from_cache", None):
-                        caption += "（缓存命中）"
-                    st.caption(caption)
-                st.markdown(f"**检索结果：{len(docs)} 条**")
-                cols = st.columns(2)
-                for idx, d in enumerate(docs):
-                    with cols[idx % 2]:
-                        st.markdown(_format_doc_card(d), unsafe_allow_html=True)
-                        c1, c2 = st.columns([1, 1])
-                        with c1:
-                            if st.button("查看全文", key=f"open_live_{idx}", use_container_width=True):
-                                _open_doc_modal(d)
-                        with c2:
-                            u = str((d.metadata or {}).get("url") or "").strip()
-                            if u:
-                                if hasattr(st, "link_button"):
-                                    st.link_button("打开链接", u, use_container_width=True)
-                                else:
-                                    st.markdown(f"[打开链接]({u})")
-
-        done = ["rewrite", "retrieve", "rerank"]
-        active = "summary"
-        stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
-
-        summarize_url = base_url.rstrip("/") + "/api/summarize"
-        summarize_payload = {"query": prompt, "docs": [d.model_dump() for d in docs]}  # type: ignore[attr-defined]
-
-        try:
-            sources: List[_SourceDoc] = []
-            sources_parsed = False
-            pending = ""
-            answer_text = ""
-
-            last_render = time.monotonic()
-            for chunk in _iter_stream_with_retry(
-                summarize_url,
-                summarize_payload,
-                timeout_s=20.0,
-                max_retries=2,
-            ):
-                pending += chunk
-                while not sources_parsed and pending.startswith("__SOURCES__:"):
-                    nl = pending.find("\n")
-                    if nl == -1:
-                        break
-                    head = pending[:nl]
-                    pending = pending[nl + 1 :]
-                    _, _, json_part = head.partition(":")
-                    try:
-                        parsed = json.loads(json_part)
-                        if isinstance(parsed, list):
-                            sources = [_SourceDoc.model_validate(x) for x in parsed]  # type: ignore[attr-defined]
-                    except Exception:
-                        sources = []
-                    sources_parsed = True
-
-                if pending and not pending.startswith("__SOURCES__:"):
-                    answer_text += pending
-                    pending = ""
-
+            last_switch = time.monotonic()
+            stage_order = ["rewrite", "retrieve", "rerank"]
+            stage_index = 0
+            while not future.done():
                 now = time.monotonic()
-                if now - last_render >= 0.08:
-                    answer_box.markdown(answer_text + "▌")
-                    last_render = now
+                if now - last_switch >= 2.0:
+                    stage_index = (stage_index + 1) % len(stage_order)
+                    active = stage_order[stage_index]
+                    stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
+                    last_switch = now
+                time.sleep(0.08)
 
-            answer_box.markdown(answer_text)
+            try:
+                search_res = future.result()
+            except Exception as e:
+                failed = active
+                stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
+                answer_box.error(f"检索失败：{e}")
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": f"检索失败：{e}", "docs": []}
+                )
+                _persist_current_session()
+                st.stop()
+            finally:
+                executor.shutdown(wait=False, cancel_futures=False)
 
-            if show_debug and sources:
-                with st.expander("调试：sources", expanded=False):
-                    st.json([s.model_dump() for s in sources])  # type: ignore[attr-defined]
+            docs = search_res.results or []
+            done = ["rewrite", "retrieve"]
+            active = "rerank"
+            stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
 
-            answer_box.empty()
-            _render_markdown_enhanced(answer_text, key=f"md_live_{uuid4_hex()}")
+            with docs_box.container():
+                if not docs:
+                    st.warning("未检索到相关文档，将直接返回空结果。")
+                else:
+                    if getattr(search_res, "latency_ms", None) is not None:
+                        caption = f"检索耗时：{search_res.latency_ms:.2f} ms"
+                        if getattr(search_res, "from_cache", None):
+                            caption += "（缓存命中）"
+                        st.caption(caption)
+                    st.markdown(f"**检索结果：{len(docs)} 条**")
+                    cols = st.columns(2)
+                    for idx, d in enumerate(docs):
+                        with cols[idx % 2]:
+                            st.markdown(_format_doc_card(d), unsafe_allow_html=True)
+                            c1, c2 = st.columns([1, 1])
+                            with c1:
+                                if st.button("查看全文", key=f"open_live_{idx}", use_container_width=True):
+                                    _open_doc_modal(d)
+                            with c2:
+                                u = str((d.metadata or {}).get("url") or "").strip()
+                                if u:
+                                    if hasattr(st, "link_button"):
+                                        st.link_button("打开链接", u, use_container_width=True)
+                                    else:
+                                        st.markdown(f"[打开链接]({u})")
 
-            done = ["rewrite", "retrieve", "rerank", "summary"]
+            done = ["rewrite", "retrieve", "rerank"]
             active = "summary"
             stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
 
-            st.session_state.messages.append(
-                {
-                    "role": "assistant",
-                    "content": answer_text,
-                    "docs": [d.model_dump() for d in docs],  # type: ignore[attr-defined]
-                    "sources": [s.model_dump() for s in sources],  # type: ignore[attr-defined]
-                }
-            )
-            _persist_current_session()
-        except Exception as e:
-            failed = "summary"
-            stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
-            answer_box.error(f"总结失败：{e}")
-            st.session_state.messages.append(
-                {
-                    "role": "assistant",
-                    "content": f"总结失败：{e}",
-                    "docs": [d.model_dump() for d in docs],  # type: ignore[attr-defined]
-                    "sources": [],
-                }
-            )
-            _persist_current_session()
+            summarize_url = base_url.rstrip("/") + "/api/summarize"
+            summarize_payload = {"query": prompt, "docs": [d.model_dump() for d in docs]}  # type: ignore[attr-defined]
+
+            try:
+                sources: List[_SourceDoc] = []
+                sources_parsed = False
+                pending = ""
+                answer_text = ""
+
+                last_render = time.monotonic()
+                for chunk in _iter_stream_with_retry(
+                    summarize_url,
+                    summarize_payload,
+                    timeout_s=20.0,
+                    max_retries=2,
+                ):
+                    pending += chunk
+                    while not sources_parsed and pending.startswith("__SOURCES__:"):
+                        nl = pending.find("\n")
+                        if nl == -1:
+                            break
+                        head = pending[:nl]
+                        pending = pending[nl + 1 :]
+                        _, _, json_part = head.partition(":")
+                        try:
+                            parsed = json.loads(json_part)
+                            if isinstance(parsed, list):
+                                sources = [_SourceDoc.model_validate(x) for x in parsed]  # type: ignore[attr-defined]
+                        except Exception:
+                            sources = []
+                        sources_parsed = True
+
+                    if pending and not pending.startswith("__SOURCES__:"):
+                        answer_text += pending
+                        pending = ""
+
+                    now = time.monotonic()
+                    if now - last_render >= 0.08:
+                        answer_box.markdown(answer_text + "▌")
+                        last_render = now
+
+                answer_box.markdown(answer_text)
+
+                if show_debug and sources:
+                    with st.expander("调试：sources", expanded=False):
+                        st.json([s.model_dump() for s in sources])  # type: ignore[attr-defined]
+
+                answer_box.empty()
+                _render_markdown_enhanced(answer_text, key=f"md_live_{uuid4_hex()}")
+
+                done = ["rewrite", "retrieve", "rerank", "summary"]
+                active = "summary"
+                stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
+
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": answer_text,
+                        "docs": [d.model_dump() for d in docs],  # type: ignore[attr-defined]
+                        "sources": [s.model_dump() for s in sources],  # type: ignore[attr-defined]
+                    }
+                )
+                _persist_current_session()
+            except Exception as e:
+                failed = "summary"
+                stepper_box.markdown(_stepper_html(active, done, failed), unsafe_allow_html=True)
+                answer_box.error(f"总结失败：{e}")
+                st.session_state.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": f"总结失败：{e}",
+                        "docs": [d.model_dump() for d in docs],  # type: ignore[attr-defined]
+                        "sources": [],
+                    }
+                )
+                _persist_current_session()

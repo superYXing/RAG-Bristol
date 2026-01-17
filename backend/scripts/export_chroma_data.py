@@ -62,22 +62,21 @@ def export_collection(collection, output_dir):
     ids = results['ids']
     documents = results['documents']
     metadatas = results['metadatas']
-    # embeddings = results.get('embeddings')  <-- 这行已不需要
     
     export_data = []
+    limit = min(500, len(ids))
+    logger.info(f"Exporting first {limit} records from {name}...")
     
-    for i in range(len(ids)):
+    for i in range(limit):
         item = {
             "id": ids[i],
             "document": documents[i],
             "metadata": metadatas[i]
         }
-        # 修改点 2: 删除了处理 embeddings 的代码块
-        # if embeddings is not None: ...
             
         export_data.append(item)
         
-    output_file = output_dir / f"chroma_export_{name}.json"
+    output_file = output_dir / f"chroma_export_{name}_first{limit}.json"
     
     logger.info(f"Writing {len(export_data)} records to {output_file}...")
     

@@ -45,6 +45,15 @@ class Settings(BaseSettings):
 
     GEMINI_MODEL_NAME: str = "gemini-3-flash-preview"
     
+    # 检索过滤配置
+    VECTOR_SEARCH_THRESHOLD: float = 0.3  # 向量相似度过滤阈值
+    URL_MATCH_BOOST: float = 0.2          # URL 匹配加分权重
+    
+    # 混合检索权重配置
+    WEIGHT_VECTOR: float = 0.3
+    WEIGHT_BM25: float = 0.3
+    WEIGHT_URL: float = 0.4
+    
     BM25_ENABLED: bool = True
     BM25_KEYWORD_WEIGHT: float = 0.4
     BM25_VECTOR_WEIGHT: float = 0.6

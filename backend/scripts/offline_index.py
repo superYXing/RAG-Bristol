@@ -80,7 +80,7 @@ def offline_index(directory: str, extensions: list = ['.md'], mode: str = 'sync'
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Offline Indexing Script")
-    parser.add_argument("--dir", type=str, default="../bristol_markdown", help="Directory containing Markdown files")
+    parser.add_argument("--dir", type=str, default="../bristol_pages/bristol_pages", help="Directory containing Markdown files")
     parser.add_argument("--mode", type=str, default="sync", choices=["sync", "async"], 
                         help="Execution mode: 'sync' (direct) or 'async' (via Celery, default)")
     args = parser.parse_args()
